@@ -141,6 +141,28 @@
         </fieldset>
       </div>
 
+      <!-- Export et import de l'agenda, gérés par js/ui/backup-settings.js. -->
+      <div class="card">
+        <h2>Sauvegarde</h2>
+        <p>Ton agenda est enregistré uniquement sur cet appareil. Exporte-le de temps en temps dans un fichier :
+          tu pourras le retrouver après un changement d'appareil, ou l'ouvrir sur un autre.</p>
+        <p class="muted small" id="derniere-sauvegarde"></p>
+        <div class="button-row">
+          <button type="button" class="btn btn-primary" id="bouton-exporter">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg>
+            <span>Exporter mon agenda</span>
+          </button>
+          <button type="button" class="btn" id="bouton-importer">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 20V9m-5 5 5-5 5 5M5 4h14"/></svg>
+            <span>Importer un agenda</span>
+          </button>
+        </div>
+        <!-- Sélecteur de fichier, caché : il est ouvert par le bouton « Importer un agenda ». -->
+        <input type="file" id="fichier-a-importer" accept=".json,application/json" hidden>
+        <!-- Résultat de l'export ou de l'import, lu par les lecteurs d'écran. -->
+        <div id="message-sauvegarde" role="status" aria-live="polite"></div>
+      </div>
+
       <div class="card">
         <h2>Informations</h2>
         <a class="btn" href="#/a-propos">À propos d'Omni-Agenda</a>

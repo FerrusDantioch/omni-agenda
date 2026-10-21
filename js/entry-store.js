@@ -10,7 +10,9 @@
 // changement pour se mettre à jour.
 // =============================================================
 
-import { deleteEntryRecord, getAllEntryRecords, putEntryRecord } from './storage.js';
+import {
+  deleteEntryRecord, getAllEntryRecords, putEntryRecord, putEntryRecords, replaceAllEntryRecords,
+} from './storage.js';
 import { normalizeEntry } from './entries.js';
 
 let entries = new Map();
@@ -68,6 +70,22 @@ export async function saveEntry(entry) {
 export async function deleteEntry(id) {
   await deleteEntryRecord(id);
   entries.delete(id);
+  notifyChange();
+  announceToOtherTabs();
+}
+
+/** Enregistre plusieurs entrées d'un coup (import « Fusionner »). Tout ou rien. */
+export async function saveEntries(list) {
+  await putEntryRecords(list);
+  for (const entry of list) entries.set(entry.id, entry);
+  notifyChange();
+  announceToOtherTabs();
+}
+
+/** Remplace tout l'agenda par `list` (import « Remplacer »). Tout ou rien. */
+export async function replaceAllEntries(list) {
+  await replaceAllEntryRecords(list);
+  entries = new Map(list.map((entry) => [entry.id, entry]));
   notifyChange();
   announceToOtherTabs();
 }

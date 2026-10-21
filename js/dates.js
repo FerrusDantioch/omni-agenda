@@ -280,6 +280,11 @@ export function formatLongDate(date) {
   return capitalize(withFirst(formats.long.format(date)));
 }
 
+/** Date JavaScript → « mercredi 21 octobre 2026 à 14:30 » (selon l'horloge de l'appareil). */
+export function formatMoment(date) {
+  return `${withFirst(formats.long.format(date))} à ${toTimeString(date)}`;
+}
+
 /** Date ISO → « Mercredi 21 octobre 2026 ». */
 export function formatISODateLong(iso) {
   return formatLongDate(noonOf(iso));

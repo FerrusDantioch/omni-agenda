@@ -16,6 +16,7 @@ import { loadEntries } from './entry-store.js';
 import { startRouter } from './router.js';
 import { initSettings } from './ui/settings.js';
 import { initAbout } from './ui/about.js';
+import { initBackupSettings } from './ui/backup-settings.js';
 import { initEntryPanel, openEntryDetails, openNewEntry } from './ui/entry-panel.js';
 import { showToast } from './ui/toast.js';
 import { DEFAULT_VIEW, getAgendaDate, initAgendaView } from './views/agenda-view.js';
@@ -56,6 +57,7 @@ async function start() {
     console.warn("Échec de l'enregistrement :", error);
     showBanner(STORAGE_WARNING);
   });
+  initBackupSettings();
   initAbout();
   initEntryPanel();
   document.getElementById('bouton-nouveau-rdv').addEventListener('click', () =>

@@ -11,6 +11,9 @@ import {
 } from '../js/dates.js';
 import { htmlToText, sanitizeHtml, textToHtml } from '../js/sanitize.js';
 import { buildEntry, createId, getEventSchedule, normalizeEntry } from '../js/entries.js';
+import {
+  BackupError, backupFileName, createBackup, describeEntries, parseBackup, planMerge, serializeBackup,
+} from '../js/backup.js';
 import { buildAgendaIndex } from '../js/views/agenda-data.js';
 import { dayView } from '../js/views/day-view.js';
 import { weekView } from '../js/views/week-view.js';
@@ -229,6 +232,94 @@ test('Une entrée abîmée ou piégée est rejetée ou nettoyée', () => {
   equal(normalizeEntry({ id: 'a', type: 'event', title: 'x', date: '2026-13-01', startTime: '10:00', endTime: '11:00' }), null, 'date impossible');
   const task = normalizeEntry({ id: 'a', type: 'task', title: 'x', priority: 'toString', description: '<img src=x onerror=alert(1)>ok' });
   equal([task.priority, task.description], ['normal', 'ok']);
+});
+
+// ---------------------------------------------------------------
+// Sauvegarde : export et import
+// ---------------------------------------------------------------
+
+/** Une tâche simple, modifiée le jour `updatedOn` (ex. : '2026-10-05'). */
+const sampleTask = (id, updatedOn, title = 'Tâche') => normalizeEntry({
+  id, type: 'task', title, dueDate: null, createdAt: '2026-10-01T08:00:00.000Z', updatedAt: `${updatedOn}T10:00:00.000Z`,
+});
+const sampleEvent = (id) => normalizeEntry({
+  id, type: 'event', title: 'Rendez-vous', date: '2026-10-21', startTime: '14:00', endTime: '15:00', timeZone: 'Europe/Paris',
+});
+const backupText = (entries, extra = {}) => JSON.stringify({ format: 'omni-agenda', version: 1, entries, ...extra });
+
+/** Vérifie que `fn` échoue avec un message clair (BackupError) contenant `fragment`. */
+function failsWith(fn, fragment) {
+  try {
+    fn();
+  } catch (error) {
+    isTrue(error instanceof BackupError, `erreur inattendue : ${error.message}`);
+    isTrue(error.message.includes(fragment), `message inattendu : ${error.message}`);
+    return;
+  }
+  throw new Error(`aucune erreur, alors que « ${fragment} » était attendu`);
+}
+
+test('Un agenda exporté puis réimporté est identique', () => {
+  const entries = [sampleTask('t1', '2026-10-05'), sampleEvent('e1')];
+  const text = serializeBackup(createBackup(entries, new Date('2026-10-21T08:30:00Z')));
+  const result = parseBackup(text);
+  const byId = (list) => [...list].sort((a, b) => a.id.localeCompare(b.id));
+  equal(byId(result.entries), byId(entries));
+  equal([result.skipped, result.exportedAt], [0, '2026-10-21T08:30:00.000Z']);
+  equal(parseBackup(`﻿${text}`).entries.length, 2, 'caractère invisible (BOM) au début');
+  equal(backupFileName('2026-10-21'), 'omni-agenda-2026-10-21.json');
+});
+
+test('Un fichier vide, abîmé ou étranger est refusé avec un message clair', () => {
+  failsWith(() => parseBackup(''), 'vide');
+  failsWith(() => parseBackup('{"format":"omni-agenda","entr'), 'abîmé');
+  failsWith(() => parseBackup('[1, 2, 3]'), "n'est pas une sauvegarde");
+  failsWith(() => parseBackup('null'), "n'est pas une sauvegarde");
+  failsWith(() => parseBackup('{"format":"autre-agenda","version":1,"entries":[]}'), "n'est pas une sauvegarde");
+  failsWith(() => parseBackup('{"format":"omni-agenda","version":1}'), 'abîmé');
+  failsWith(() => parseBackup('{"format":"omni-agenda","version":"1","entries":[]}'), 'abîmé');
+  failsWith(() => parseBackup(backupText([], { version: 2 })), 'version plus récente');
+  failsWith(() => parseBackup(backupText([], { encrypted: true })), 'mot de passe');
+});
+
+test('À l’import, les entrées piégées sont nettoyées, les abîmées ignorées', () => {
+  const result = parseBackup(backupText([
+    { ...sampleTask('a', '2026-10-05'), description: '<img src=x onerror=alert(1)><b>ok</b><script>alert(2)</script>' },
+    { id: 'b', type: 'event', title: 'Sans date ni heure' },
+    { id: '__proto__', type: 'task', title: 'Nom spécial' },
+    'du texte',
+    null,
+  ]));
+  equal(result.entries.map((entry) => entry.id), ['a']);
+  equal(result.entries[0].description, '<strong>ok</strong>');
+  equal(result.skipped, 4);
+});
+
+test('Un même élément en double dans le fichier : la version la plus récente gagne', () => {
+  const result = parseBackup(backupText([
+    sampleTask('a', '2026-10-02', 'Ancienne'),
+    sampleTask('a', '2026-10-09', 'Récente'),
+    sampleTask('a', '2026-10-05', 'Moyenne'),
+  ]));
+  equal(result.entries.map((entry) => entry.title), ['Récente']);
+  equal(result.skipped, 2);
+});
+
+test('Fusion : ajoute le nouveau, met à jour le plus récent, ne supprime rien', () => {
+  const current = [sampleTask('a', '2026-10-01', 'A appareil'), sampleTask('b', '2026-10-05', 'B appareil'), sampleTask('c', '2026-10-01')];
+  const incoming = [sampleTask('a', '2026-10-03', 'A fichier'), sampleTask('b', '2026-10-02', 'B fichier'), sampleTask('d', '2026-10-01')];
+  const plan = planMerge(current, incoming);
+  equal(plan.added.map((entry) => entry.id), ['d'], 'ajoutés');
+  equal(plan.updated.map((entry) => entry.title), ['A fichier'], 'mis à jour (le fichier est plus récent)');
+  equal(plan.unchanged.map((entry) => entry.id), ['b'], 'gardés (l’appareil est plus récent)');
+});
+
+test('Résumé du contenu en français (singulier et pluriel)', () => {
+  equal(describeEntries([]), 'aucun rendez-vous ni aucune tâche');
+  equal(describeEntries([sampleTask('a', '2026-10-01')]), '1 tâche');
+  equal(describeEntries([sampleTask('a', '2026-10-01'), sampleTask('b', '2026-10-01')]), '2 tâches');
+  equal(describeEntries([sampleEvent('e')]), '1 rendez-vous');
+  equal(describeEntries([sampleEvent('e'), sampleEvent('f'), sampleTask('a', '2026-10-01')]), '2 rendez-vous et 1 tâche');
 });
 
 // ---------------------------------------------------------------

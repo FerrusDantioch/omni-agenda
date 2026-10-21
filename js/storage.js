@@ -6,8 +6,8 @@
 // envoyé sur internet.
 //
 // La base contient deux « rayons » (appelés object stores) :
-//   - settings : les réglages (thème, taille du texte…)
-//   - entries  : les rendez-vous et les tâches (étape 2)
+//   - settings : les réglages (thème, taille du texte, date du dernier export…)
+//   - entries  : les rendez-vous et les tâches
 // =============================================================
 
 const DB_NAME = 'omni-agenda';
@@ -70,7 +70,16 @@ async function runTransaction(storeName, mode, action) {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(storeName, mode);
-    const request = action(transaction.objectStore(storeName));
+    let request;
+    try {
+      request = action(transaction.objectStore(storeName));
+    } catch (error) {
+      // Une opération a échoué : on annule TOUTE la transaction,
+      // pour ne jamais garder un enregistrement à moitié fait.
+      transaction.abort();
+      reject(error);
+      return;
+    }
     let result;
     if (request) {
       request.onsuccess = () => {
@@ -115,6 +124,28 @@ export function putEntryRecord(record) {
 /** Supprime une entrée par son identifiant. */
 export function deleteEntryRecord(id) {
   return runTransaction(STORE_ENTRIES, 'readwrite', (store) => store.delete(id));
+}
+
+/**
+ * Enregistre plusieurs entrées d'un seul coup (import « Fusionner »).
+ * C'est « tout ou rien » : si une seule échoue, aucune n'est enregistrée.
+ */
+export function putEntryRecords(records) {
+  return runTransaction(STORE_ENTRIES, 'readwrite', (store) => {
+    for (const record of records) store.put(record);
+  });
+}
+
+/**
+ * Remplace TOUTES les entrées par `records` (import « Remplacer »).
+ * L'effacement et l'ajout se font dans la même transaction : en cas
+ * de problème, rien n'est effacé.
+ */
+export function replaceAllEntryRecords(records) {
+  return runTransaction(STORE_ENTRIES, 'readwrite', (store) => {
+    store.clear();
+    for (const record of records) store.put(record);
+  });
 }
 
 // ---------------------------------------------------------------

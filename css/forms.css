@@ -86,6 +86,36 @@
   padding-top: 0;
 }
 
+/* Texte d'une petite fenêtre de question (un ou plusieurs paragraphes). */
+.dialog-message p {
+  margin: 0 0 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+/* Choix proposés dans une fenêtre (ex. : Fusionner / Remplacer) :
+   chaque choix est un grand bouton suivi de son explication. */
+.dialog-choices {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.dialog-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.8rem;
+  background: var(--color-surface-2);
+}
+
+.dialog-choice-desc {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.95rem;
+}
+
 /* Sur téléphone, la fenêtre d'une entrée occupe tout l'écran. */
 @media (max-width: 40rem) {
   .panel:not(.panel-small) {

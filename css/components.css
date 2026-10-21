@@ -317,6 +317,25 @@ legend {
   border: 1px solid var(--color-border-strong);
   border-radius: 0.75rem;
   background: var(--color-surface-2);
+  /* Un long nom de fichier passe à la ligne au lieu de dépasser. */
+  overflow-wrap: anywhere;
+}
+
+/* Un message en plusieurs paragraphes. */
+.notice p {
+  margin: 0;
+}
+
+.notice p + p {
+  margin-top: 0.5rem;
+}
+
+/* ---------- Rangée de boutons (ex. : Exporter / Importer) ---------- */
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
 }
 
 /* ---------- Écran d'accueil ---------- */
