@@ -1,51 +1,8 @@
 /* =============================================================
    entries.css — Affichage des rendez-vous et des tâches
    -------------------------------------------------------------
-   En-tête de l'agenda, liste par jour, lignes d'entrée,
-   fiche de détails.
+   Lignes d'entrée (sur les pages de l'agenda) et fiche de détails.
    ============================================================= */
-
-/* ---------- En-tête de l'écran agenda ---------- */
-.agenda-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1.25rem;
-}
-
-.agenda-header h1 {
-  margin: 0;
-}
-
-.agenda-today {
-  margin: 0.25rem 0 0;
-  color: var(--color-accent);
-  font-weight: 600;
-}
-
-.agenda-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-/* ---------- Liste par jour ---------- */
-.day-group {
-  margin-bottom: 1.5rem;
-}
-
-.day-heading {
-  margin: 0 0 0.5rem;
-  color: var(--color-text-muted);
-  font-size: 1.05rem;
-  font-weight: 600;
-}
-
-.day-heading.is-today {
-  color: var(--color-accent);
-}
 
 .entry-list {
   display: flex;
@@ -56,6 +13,15 @@
   list-style: none;
 }
 
+/* Version compacte (vue semaine) : lignes plus serrées. */
+.entry-list.is-compact {
+  gap: 0.35rem;
+}
+
+.entry-list.is-compact .entry-main {
+  padding: 0.35rem 0.7rem;
+}
+
 /* ---------- Une ligne d'entrée ---------- */
 .entry {
   display: flex;
@@ -64,7 +30,7 @@
   border: 1px solid var(--color-border);
   border-left: 4px solid var(--color-accent);
   border-radius: 0.75rem;
-  background: var(--color-paper);
+  background: var(--color-surface);
 }
 
 .entry-task {

@@ -95,12 +95,13 @@ async function removeEntry(entry) {
 // Mode « formulaire »
 // ---------------------------------------------------------------
 
-function showForm({ entry = null, type = 'event', defaultDate }) {
+function showForm({ entry = null, type = 'event', defaultDate, defaultDueDate }) {
   let heading = null;
   const form = renderEntryForm({
     entry,
     type,
     defaultDate,
+    defaultDueDate,
     onTypeChange: (newType) => {
       heading.textContent = NEW_TITLES[newType];
     },
@@ -152,9 +153,12 @@ export function initEntryPanel() {
   });
 }
 
-/** Ouvre le formulaire de création. `type` : 'event' ou 'task'. */
-export function openNewEntry(type, { defaultDate } = {}) {
-  showForm({ type, defaultDate });
+/**
+ * Ouvre le formulaire de création. `type` : 'event' ou 'task'.
+ * `defaultDate` / `defaultDueDate` : dates proposées (facultatives).
+ */
+export function openNewEntry(type, { defaultDate, defaultDueDate } = {}) {
+  showForm({ type, defaultDate, defaultDueDate });
   openModal(getDialog());
   view.form.focusFirstField();
 }

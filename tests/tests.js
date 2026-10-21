@@ -6,11 +6,14 @@
 // =============================================================
 
 import {
-  addDays, isValidISODate, isValidTime, minutesToTime, timeToMinutes,
-  wallTimeExists, zonedTimeToInstant, instantToZoned,
+  addDays, addMonths, daysInMonth, formatDayMonth, formatISODateLong, isoWeekNumber, isValidISODate,
+  isValidTime, minutesToTime, startOfWeek, timeToMinutes, wallTimeExists, zonedTimeToInstant, instantToZoned,
 } from '../js/dates.js';
 import { htmlToText, sanitizeHtml, textToHtml } from '../js/sanitize.js';
 import { buildEntry, createId, getEventSchedule, normalizeEntry } from '../js/entries.js';
+import { buildAgendaIndex } from '../js/views/agenda-data.js';
+import { dayView } from '../js/views/day-view.js';
+import { weekView } from '../js/views/week-view.js';
 
 const results = [];
 
@@ -226,6 +229,61 @@ test('Une entrée abîmée ou piégée est rejetée ou nettoyée', () => {
   equal(normalizeEntry({ id: 'a', type: 'event', title: 'x', date: '2026-13-01', startTime: '10:00', endTime: '11:00' }), null, 'date impossible');
   const task = normalizeEntry({ id: 'a', type: 'task', title: 'x', priority: 'toString', description: '<img src=x onerror=alert(1)>ok' });
   equal([task.priority, task.description], ['normal', 'ok']);
+});
+
+// ---------------------------------------------------------------
+// Calendrier et vues de l'agenda
+// ---------------------------------------------------------------
+test('La semaine commence le lundi', () => {
+  equal(startOfWeek('2026-10-21'), '2026-10-19', 'mercredi');
+  equal(startOfWeek('2026-10-25'), '2026-10-19', 'dimanche');
+  equal(startOfWeek('2026-10-19'), '2026-10-19', 'lundi');
+});
+
+test('Numéros de semaine (norme ISO des agendas français)', () => {
+  equal(isoWeekNumber('2026-10-21'), 43);
+  equal(isoWeekNumber('2026-01-01'), 1);
+  equal(isoWeekNumber('2027-01-01'), 53, '2026 compte 53 semaines');
+  equal(isoWeekNumber('2024-12-30'), 1, 'fin décembre 2024 = semaine 1 de 2025');
+});
+
+test('Jours dans un mois et changement de mois', () => {
+  equal(daysInMonth(2028, 2), 29);
+  equal(daysInMonth(2026, 2), 28);
+  equal(addMonths('2026-12-15', 1), '2027-01-01');
+  equal(addMonths('2026-01-31', -1), '2025-12-01');
+});
+
+test('Le premier du mois s’écrit « 1er »', () => {
+  equal(formatISODateLong('2026-11-01'), 'Dimanche 1er novembre 2026');
+  equal(formatISODateLong('2026-11-21'), 'Samedi 21 novembre 2026');
+  equal(formatDayMonth('2026-11-01'), '1er novembre');
+});
+
+test('Titres des périodes affichées', () => {
+  equal(dayView.title('2026-10-21', 'spread'), 'Mercredi 21 et jeudi 22 octobre 2026');
+  equal(dayView.title('2026-10-31', 'spread'), 'Samedi 31 octobre et dimanche 1er novembre 2026');
+  equal(dayView.title('2026-12-31', 'spread'), 'Jeudi 31 décembre 2026 et vendredi 1er janvier 2027');
+  equal(dayView.title('2026-10-21', 'single'), 'Mercredi 21 octobre 2026');
+  equal(weekView.title('2026-10-28'), 'Semaine 44 · du 26 octobre au 1er novembre 2026');
+  equal(weekView.title('2026-12-30'), 'Semaine 53 · du 28 décembre 2026 au 3 janvier 2027');
+});
+
+test('Rangement des entrées : par jour, en retard, sans échéance', () => {
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const raw = [
+    { id: 'a', type: 'event', title: 'Après-midi', date: '2026-10-21', startTime: '15:00', endTime: '16:00', timeZone: zone },
+    { id: 'b', type: 'event', title: 'Matin', date: '2026-10-21', startTime: '09:00', endTime: '10:00', timeZone: zone },
+    { id: 'c', type: 'task', title: 'Tâche du jour', dueDate: '2026-10-21' },
+    { id: 'd', type: 'task', title: 'En retard', dueDate: '2026-10-19' },
+    { id: 'e', type: 'task', title: 'Faite en retard', dueDate: '2026-10-18', done: true },
+    { id: 'f', type: 'task', title: 'Un jour', dueDate: null },
+  ].map(normalizeEntry);
+  const index = buildAgendaIndex(raw, '2026-10-21');
+  equal(index.entriesOn('2026-10-21').map((e) => e.title), ['Matin', 'Après-midi', 'Tâche du jour']);
+  equal(index.overdue.map((e) => e.title), ['En retard'], 'une tâche faite n’est pas en retard');
+  equal(index.undated.map((e) => e.title), ['Un jour']);
+  equal(index.entriesOn('2026-10-25'), []);
 });
 
 // ---------------------------------------------------------------

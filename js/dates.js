@@ -204,33 +204,111 @@ export function wallTimeExists(dateISO, time, timeZone) {
 }
 
 // ---------------------------------------------------------------
+// Calendrier (semaines du lundi au dimanche, comme en France)
+// ---------------------------------------------------------------
+
+/** Rang du jour dans la semaine : lundi = 0 … dimanche = 6. */
+export function weekdayIndex(iso) {
+  const { year, month, day } = parseISODate(iso);
+  return (new Date(Date.UTC(year, month - 1, day)).getUTCDay() + 6) % 7;
+}
+
+/** Le lundi de la semaine qui contient cette date. */
+export function startOfWeek(iso) {
+  return addDays(iso, -weekdayIndex(iso));
+}
+
+/** Le premier jour du mois qui contient cette date. */
+export function startOfMonth(iso) {
+  return `${iso.slice(0, 7)}-01`;
+}
+
+/** Nombre de jours dans un mois (février bissextile compris). */
+export function daysInMonth(year, month) {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+/** Ajoute des mois et renvoie le 1er du mois obtenu. */
+export function addMonths(iso, months) {
+  const { year, month } = parseISODate(iso);
+  const result = new Date(Date.UTC(year, month - 1 + months, 1));
+  return `${result.getUTCFullYear()}-${pad(result.getUTCMonth() + 1)}-01`;
+}
+
+/**
+ * Numéro de la semaine (norme ISO, utilisée dans les agendas français) :
+ * la semaine 1 est celle qui contient le premier jeudi de l'année.
+ */
+export function isoWeekNumber(iso) {
+  const thursday = addDays(iso, 3 - weekdayIndex(iso));
+  const { year } = parseISODate(thursday);
+  const firstThursday = addDays(`${year}-01-04`, 3 - weekdayIndex(`${year}-01-04`));
+  const diffDays = (Date.parse(`${thursday}T00:00:00Z`) - Date.parse(`${firstThursday}T00:00:00Z`)) / 86400000;
+  return 1 + Math.round(diffDays / 7);
+}
+
+// ---------------------------------------------------------------
 // Affichage en français
 // ---------------------------------------------------------------
 
-const longDateFormat = new Intl.DateTimeFormat('fr-FR', {
-  weekday: 'long',
-  day: 'numeric',
-  month: 'long',
-  year: 'numeric',
-});
+/** Date ISO → objet Date à midi (l'heure de midi évite tout effet d'un changement d'heure). */
+function noonOf(iso) {
+  const { year, month, day } = parseISODate(iso);
+  return new Date(year, month - 1, day, 12);
+}
+
+const formats = {
+  long: new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+  weekday: new Intl.DateTimeFormat('fr-FR', { weekday: 'long' }),
+  weekdayShort: new Intl.DateTimeFormat('fr-FR', { weekday: 'short' }),
+  monthYear: new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }),
+  month: new Intl.DateTimeFormat('fr-FR', { month: 'long' }),
+};
 
 /** Met une majuscule à la première lettre : « mercredi » → « Mercredi ». */
 export function capitalize(text) {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-/** Date JavaScript → « Mercredi 21 octobre 2026 ». */
-export function formatLongDate(date) {
-  return capitalize(longDateFormat.format(date));
+/** En français, le premier jour du mois s'écrit « 1er ». */
+function withFirst(text) {
+  return text.replace(/(^|\s)1(?=\s)/, '$11er');
 }
 
-/**
- * Date ISO → « Mercredi 21 octobre 2026 ».
- * On place l'heure à midi pour éviter tout effet d'un changement d'heure à minuit.
- */
+/** Date JavaScript → « Mercredi 21 octobre 2026 » (ou « Dimanche 1er novembre 2026 »). */
+export function formatLongDate(date) {
+  return capitalize(withFirst(formats.long.format(date)));
+}
+
+/** Date ISO → « Mercredi 21 octobre 2026 ». */
 export function formatISODateLong(iso) {
-  const { year, month, day } = parseISODate(iso);
-  return formatLongDate(new Date(year, month - 1, day, 12));
+  return formatLongDate(noonOf(iso));
+}
+
+/** Date ISO → « Mercredi ». */
+export function formatWeekday(iso) {
+  return capitalize(formats.weekday.format(noonOf(iso)));
+}
+
+/** Date ISO → « Mer. ». */
+export function formatWeekdayShort(iso) {
+  return capitalize(formats.weekdayShort.format(noonOf(iso)));
+}
+
+/** Date ISO → « 21 octobre » (ou « 1er novembre »). */
+export function formatDayMonth(iso) {
+  const { day } = parseISODate(iso);
+  return `${day === 1 ? '1er' : day} ${formats.month.format(noonOf(iso))}`;
+}
+
+/** Date ISO → « Octobre 2026 ». */
+export function formatMonthYear(iso) {
+  return capitalize(formats.monthYear.format(noonOf(iso)));
+}
+
+/** Date ISO → « octobre 2026 ». */
+export function formatMonthYearLower(iso) {
+  return formats.monthYear.format(noonOf(iso));
 }
 
 /** « Aujourd'hui », « Demain », « Hier », ou null pour les autres jours. */

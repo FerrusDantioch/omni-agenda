@@ -79,10 +79,13 @@ function suggestStartTime(dateISO) {
  *  - entry : l'entrée à modifier (null pour une nouvelle) ;
  *  - type : 'event' ou 'task' (pour une nouvelle entrée) ;
  *  - defaultDate : date proposée pour un nouveau rendez-vous ;
+ *  - defaultDueDate : échéance proposée pour une nouvelle tâche ('' = aucune) ;
  *  - onTypeChange(type), onSubmit(entry) (asynchrone), onCancel().
  * Renvoie { element, isDirty(), focusFirstField() }.
  */
-export function renderEntryForm({ entry = null, type = 'event', defaultDate = todayISO(), onTypeChange, onSubmit, onCancel }) {
+export function renderEntryForm({
+  entry = null, type = 'event', defaultDate = todayISO(), defaultDueDate = '', onTypeChange, onSubmit, onCancel,
+}) {
   const isNew = !entry;
   let currentType = entry ? entry.type : type;
 
@@ -104,7 +107,7 @@ export function renderEntryForm({ entry = null, type = 'event', defaultDate = to
     ),
   );
 
-  const dueInput = el('input', { type: 'date', min: '1900-01-01', max: '2200-12-31', value: entry?.type === 'task' ? entry.dueDate ?? '' : '' });
+  const dueInput = el('input', { type: 'date', min: '1900-01-01', max: '2200-12-31', value: entry ? (entry.type === 'task' ? entry.dueDate ?? '' : '') : defaultDueDate });
   const clearDueButton = el('button', { type: 'button', class: 'btn btn-ghost btn-small' }, "Retirer l'échéance");
   const doneInput = el('input', { type: 'checkbox', name: 'done', checked: entry?.type === 'task' && entry.done });
   const descriptionInput = el('textarea', { rows: 5, maxlength: LIMITS.description }, entry ? htmlToText(entry.description) : '');

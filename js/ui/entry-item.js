@@ -9,6 +9,7 @@
 
 import { el } from './dom.js';
 import { getEventSchedule, priorityLabel } from '../entries.js';
+import { formatDayMonth } from '../dates.js';
 
 /** Texte de l'horaire : « 14:00 – 15:00 » (ou « …, fin le lendemain »). */
 export function formatEventHours(schedule) {
@@ -19,8 +20,9 @@ export function formatEventHours(schedule) {
 /**
  * Fabrique une ligne <li> pour une entrée.
  * `onOpen(id)` : ouvrir la fiche. `onToggleDone(id)` : cocher une tâche.
+ * `showDueDate` : afficher la date d'échéance (utile pour les tâches en retard).
  */
-export function renderEntryItem(entry, { onOpen, onToggleDone }) {
+export function renderEntryItem(entry, { onOpen, onToggleDone, showDueDate = false }) {
   const open = () => onOpen(entry.id);
 
   if (entry.type === 'event') {
@@ -48,6 +50,7 @@ export function renderEntryItem(entry, { onOpen, onToggleDone }) {
     el('button', { type: 'button', class: 'entry-main', 'data-focus-key': `ouvrir-${entry.id}`, onclick: open },
       el('span', { class: 'entry-kind' }, 'Tâche'),
       el('span', { class: 'entry-title' }, entry.title),
+      showDueDate && entry.dueDate ? el('span', { class: 'entry-meta' }, `Prévue le ${formatDayMonth(entry.dueDate)}`) : null,
       entry.priority === 'high'
         ? el('span', { class: 'entry-priority' }, `Priorité ${priorityLabel(entry.priority).toLowerCase()}`)
         : null,

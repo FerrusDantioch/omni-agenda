@@ -20,6 +20,8 @@
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/forms.css">
   <link rel="stylesheet" href="css/entries.css">
+  <link rel="stylesheet" href="css/agenda.css">
+  <link rel="stylesheet" href="css/paper.css">
 
   <!-- Applique le thème mémorisé AVANT l'affichage (évite un flash de couleur). -->
   <script src="js/boot.js"></script>
@@ -54,10 +56,21 @@
 
     <!-- ============ Écran : agenda (accueil) ============ -->
     <section class="screen" data-screen="agenda" data-title="Omni-Agenda" aria-labelledby="titre-agenda">
-      <div class="agenda-header">
-        <div>
-          <h1 id="titre-agenda">Mon agenda</h1>
-          <p class="agenda-today" id="date-du-jour"></p>
+
+      <!-- Choix de la vue, aujourd'hui / aller à une date, boutons d'ajout -->
+      <div class="agenda-toolbar">
+        <div class="view-switch" role="group" aria-label="Affichage">
+          <button type="button" class="view-switch-btn" data-view="day" aria-pressed="true">Jour</button>
+          <button type="button" class="view-switch-btn" data-view="week" aria-pressed="false">Semaine</button>
+          <button type="button" class="view-switch-btn" data-view="month" aria-pressed="false">Mois</button>
+        </div>
+        <!-- Retour à aujourd'hui et saut à une date -->
+        <div class="agenda-jump">
+          <button type="button" class="btn" id="bouton-aujourdhui">Aujourd'hui</button>
+          <label class="jump-date">
+            <span>Aller au</span>
+            <input type="date" id="aller-a-la-date" min="1900-01-01" max="2200-12-31">
+          </label>
         </div>
         <div class="agenda-actions">
           <button type="button" class="btn btn-primary" id="bouton-nouveau-rdv">
@@ -71,17 +84,33 @@
         </div>
       </div>
 
-      <!-- Accueil, affiché quand l'agenda est vide. -->
-      <div class="welcome" id="accueil-vide" hidden>
-        <img class="welcome-logo" src="assets/icons/logo.svg" alt="" width="96" height="96">
-        <h2>Bienvenue dans Omni-Agenda</h2>
-        <p>Ton agenda privé : tout reste sur cet appareil.<br>
-           Pas de compte, pas de publicité, pas besoin d'internet.</p>
-        <p class="muted">Ton agenda est vide pour l'instant. Ajoute un rendez-vous ou une tâche avec les boutons ci-dessus.</p>
+      <!-- Navigation : précédent, période affichée, suivant -->
+      <div class="agenda-nav">
+        <button type="button" class="btn btn-ghost nav-button" id="bouton-precedent">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          <span class="nav-label">Précédent</span>
+        </button>
+        <h1 id="titre-agenda" class="agenda-title" aria-live="polite">Omni-Agenda</h1>
+        <button type="button" class="btn btn-ghost nav-button" id="bouton-suivant">
+          <span class="nav-label">Suivant</span>
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
       </div>
 
-      <!-- Liste des entrées, classées par jour. -->
-      <div id="liste-entrees" class="day-groups"></div>
+      <!-- Accueil, affiché quand l'agenda est vide. -->
+      <div class="welcome welcome-compact" id="accueil-vide" hidden>
+        <img class="welcome-logo" src="assets/icons/logo.svg" alt="" width="64" height="64">
+        <div>
+          <h2>Bienvenue dans Omni-Agenda</h2>
+          <p>Ton agenda privé : tout reste sur cet appareil. Pas de compte, pas de publicité, pas besoin d'internet.</p>
+          <p class="muted">Ajoute ton premier rendez-vous ou ta première tâche avec les boutons « Rendez-vous » et « Tâche ».</p>
+        </div>
+      </div>
+
+      <!-- Le livre : une ou deux pages, dessinées par js/views/. -->
+      <div class="book-wrap" id="livre-conteneur">
+        <div class="book" id="livre"></div>
+      </div>
     </section>
 
     <!-- ============ Écran : réglages ============ -->

@@ -15,6 +15,8 @@ html {
   /* La taille du texte est réglée par l'utilisateur (réglages ou navigateur). */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  /* Réserve la place de la barre de défilement : la mise en page ne « saute » pas. */
+  scrollbar-gutter: stable;
   /* Police par défaut : celle de l'appareil. D'autres polices arriveront à l'étape 4. */
   --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", Ubuntu, Cantarell, "Helvetica Neue", Arial, sans-serif;
 }

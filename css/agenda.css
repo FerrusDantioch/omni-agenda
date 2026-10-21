@@ -1,0 +1,406 @@
+/* =============================================================
+   agenda.css — Écran de l'agenda : barre d'outils, navigation,
+   vue semaine et calendrier du mois
+   ============================================================= */
+
+/* ---------- Choix de la vue + boutons d'ajout ---------- */
+.agenda-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.view-switch {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 0.8rem;
+  background: var(--color-surface);
+}
+
+.view-switch-btn {
+  min-height: max(44px, 2.75rem);
+  padding: 0.4rem 1.1rem;
+  border: 0;
+  border-radius: 0.6rem;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.view-switch-btn:hover {
+  background: var(--color-accent-soft);
+}
+
+.view-switch-btn[aria-pressed="true"] {
+  background: var(--color-accent);
+  box-shadow: var(--glow);
+  color: var(--color-on-accent);
+}
+
+.agenda-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+/* ---------- Précédent / titre de la période / suivant ---------- */
+.agenda-nav {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.agenda-title {
+  margin: 0;
+  font-size: 1.3rem;
+  text-align: center;
+}
+
+/* ---------- Aujourd'hui / aller à une date ---------- */
+.agenda-jump {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.jump-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.jump-date input {
+  width: auto;
+}
+
+/* ---------- Accueil compact (agenda vide) ---------- */
+.welcome-compact {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  max-width: none;
+  margin: 0 0 1.25rem;
+  padding: 1.25rem;
+  text-align: left;
+}
+
+.welcome-compact .welcome-logo {
+  flex-shrink: 0;
+  width: 4rem;
+  height: 4rem;
+  margin: 0;
+}
+
+.welcome-compact h2 {
+  margin-bottom: 0.4rem;
+}
+
+.welcome-compact p:last-child {
+  margin-bottom: 0;
+}
+
+/* ---------- Vue semaine ---------- */
+.page-week-title,
+.page-month-title {
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-paper-edge);
+  font-size: 1.2rem;
+}
+
+.week-day {
+  padding: 0.4rem 0 0.75rem;
+  border-bottom: 1px solid var(--color-paper-edge);
+}
+
+.week-day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.week-day-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 1rem;
+}
+
+.week-day-link {
+  min-height: 44px;
+  margin-left: -0.4rem;
+  padding: 0 0.4rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+
+.week-day-link:hover {
+  background: var(--color-accent-soft);
+}
+
+.week-day-num {
+  color: var(--color-accent);
+}
+
+.week-day.is-today .week-day-name {
+  color: var(--color-accent);
+}
+
+.week-day-add {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+/* ---------- Calendrier du mois ---------- */
+.month-grid {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.month-grid th {
+  padding: 0.25rem 0 0.5rem;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.month-grid td {
+  padding: 2px;
+}
+
+/* La page sert de repère de largeur pour adapter le calendrier. */
+.book[data-view="month"] .page {
+  container-type: inline-size;
+}
+
+.weekday-narrow {
+  display: none;
+}
+
+/* Page étroite par rapport à la taille du texte : initiales des jours. */
+@container (max-width: 19em) {
+  .weekday-short {
+    display: none;
+  }
+
+  .weekday-narrow {
+    display: inline;
+  }
+}
+
+.month-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  width: 100%;
+  min-height: max(44px, 3.1rem);
+  padding: 0.25rem 0.1rem;
+  border: 2px solid transparent;
+  border-radius: 0.55rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.book[data-mode="spread"] .month-day {
+  min-height: 3.9rem;
+}
+
+.month-day:hover {
+  background: var(--color-accent-soft);
+}
+
+.month-day.is-outside {
+  color: var(--color-text-muted);
+}
+
+.month-day[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.month-day-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 50%;
+  font-weight: 600;
+}
+
+/* Aujourd'hui : chiffre dans un rond plein. */
+.month-day.is-today .month-day-num {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.month-markers {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 0.5rem;
+}
+
+.marker {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+}
+
+.marker-event {
+  background: var(--color-accent);
+}
+
+.marker-task {
+  border: 1.5px solid var(--color-text-muted);
+}
+
+.marker-more {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 0.5rem;
+}
+
+.month-selected {
+  margin-top: 1.5rem;
+}
+
+/* ---------- Écrans étroits (téléphone en portrait) ---------- */
+@media (max-width: 40rem) {
+  .view-switch {
+    flex: 1 1 100%;
+  }
+
+  .view-switch-btn {
+    flex: 1;
+    padding-inline: 0.5rem;
+  }
+
+  /* « Aujourd'hui » et « Aller au » tiennent sur une seule ligne. */
+  .agenda-jump {
+    flex: 1 1 100%;
+    gap: 0.5rem;
+  }
+
+  .agenda-jump .btn {
+    padding-inline: 0.75rem;
+  }
+
+  .jump-date {
+    gap: 0.4rem;
+  }
+
+  .jump-date input {
+    padding-inline: 0.5rem;
+  }
+
+  /* Les boutons « Rendez-vous » et « Tâche » se placent en bas de l'écran, sous le pouce. */
+  .agenda-actions {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 20;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 0.6rem max(1rem, env(safe-area-inset-right)) max(0.6rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+    border-top: 1px solid var(--color-border);
+    background: var(--color-surface);
+  }
+
+  /* Place laissée en bas pour ne rien cacher derrière ces boutons. */
+  .screen[data-screen="agenda"] {
+    padding-bottom: 5rem;
+  }
+
+  .toast {
+    bottom: 5.5rem;
+  }
+
+  .agenda-title {
+    font-size: 1.1rem;
+  }
+
+  /* Sur téléphone, « Précédent » / « Suivant » n'affichent que la flèche
+     (le texte reste lu par les lecteurs d'écran). */
+  .nav-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .nav-button {
+    padding: 0;
+    width: max(44px, 2.75rem);
+  }
+
+  .welcome-compact {
+    align-items: flex-start;
+  }
+
+  .welcome-compact .welcome-logo {
+    width: 3rem;
+    height: 3rem;
+  }
+
+  .page {
+    min-height: 24rem;
+    padding: 1.25rem 1rem 1.5rem;
+  }
+
+  /* Mois sur téléphone : marges réduites pour que chaque case
+     du calendrier fasse au moins 44 px de large. */
+  .book-wrap {
+    padding-inline: 0.25rem;
+  }
+
+  .book[data-view="month"] .page {
+    padding-inline: 0.5rem;
+  }
+
+  .book[data-view="month"] .page-month-title,
+  .book[data-view="month"] .month-selected,
+  .book[data-view="month"] .page-notes {
+    margin-inline: 0.5rem;
+  }
+
+  .month-grid td {
+    padding: 1px;
+  }
+}
+
+/* Écran peu haut (téléphone en paysage) : la barre du haut ne reste pas collée. */
+@media (max-height: 30rem) {
+  .app-header {
+    position: static;
+  }
+}
