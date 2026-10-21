@@ -3,21 +3,25 @@
 // -------------------------------------------------------------
 // Le bloc « Sauvegarde » de l'écran Réglages :
 //  - « Exporter mon agenda » enregistre un fichier .json sur
-//    l'appareil (en général dans le dossier Téléchargements) ;
-//  - « Importer un agenda » relit un tel fichier. Avant de toucher
-//    à quoi que ce soit, on montre ce que contient le fichier et on
-//    demande : « Fusionner » ou « Remplacer ». « Remplacer » demande
-//    en plus une confirmation, car il efface l'agenda actuel.
+//    l'appareil (en général dans le dossier Téléchargements).
+//    Si un mot de passe est actif, ce fichier est chiffré ;
+//  - « Importer un agenda » relit un tel fichier (en demandant son
+//    mot de passe s'il est chiffré). Avant de toucher à quoi que ce
+//    soit, on montre ce que contient le fichier et on demande :
+//    « Fusionner » ou « Remplacer ». « Remplacer » demande en plus
+//    une confirmation, car il efface l'agenda actuel.
 // =============================================================
 
-import { el } from './dom.js';
-import { chooseAction, confirmAction } from './dialogs.js';
+import { el, showNotice } from './dom.js';
+import { chooseAction, confirmAction, openFormDialog } from './dialogs.js';
+import { passwordField } from './password-field.js';
 import { getSetting, setSetting } from '../storage.js';
 import { getEntries, replaceAllEntries, saveEntries } from '../entry-store.js';
+import { getExportProtection } from '../security.js';
 import { formatMoment, toISODate } from '../dates.js';
 import {
-  BackupError, MAX_BACKUP_BYTES, backupFileName, createBackup, describeCount, describeEntries,
-  parseBackup, planMerge, serializeBackup,
+  BackupError, MAX_BACKUP_BYTES, backupFileName, createBackup, createEncryptedBackup, decryptBackup,
+  describeCount, describeEntries, parseBackup, planMerge, serializeBackup,
 } from '../backup.js';
 
 const LAST_EXPORT_SETTING = 'lastExportAt';
@@ -30,21 +34,13 @@ let busy = false;
 // Messages affichés sous les boutons
 // ---------------------------------------------------------------
 
-/**
- * Affiche un message (un texte ou une liste de textes) sous les boutons.
- * La zone est lue à voix haute par les lecteurs d'écran.
- */
-function showMessage(lines, { isError = false } = {}) {
-  const zone = document.getElementById('message-sauvegarde');
-  const texts = (Array.isArray(lines) ? lines : [lines]).filter(Boolean);
-  const notice = el('div', { class: isError ? 'notice notice-error' : 'notice' }, texts.map((text) => el('p', {}, text)));
-  // On vide puis on remplit : un message identique au précédent est ainsi annoncé de nouveau.
-  zone.replaceChildren();
-  requestAnimationFrame(() => zone.replaceChildren(notice));
+/** Affiche un message (un texte ou une liste de textes) sous les boutons. */
+function showMessage(lines) {
+  showNotice(document.getElementById('message-sauvegarde'), lines);
 }
 
 function showError(lines) {
-  showMessage(lines, { isError: true });
+  showNotice(document.getElementById('message-sauvegarde'), lines, { isError: true });
 }
 
 function setBusy(value) {
@@ -90,7 +86,8 @@ function downloadFile(fileName, text) {
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
-function exportAgenda() {
+async function exportAgenda() {
+  if (busy) return;
   const entries = getEntries();
   if (entries.length === 0) {
     showMessage("Ton agenda est vide : il n'y a encore rien à exporter.");
@@ -99,10 +96,25 @@ function exportAgenda() {
 
   const now = new Date();
   const fileName = backupFileName(toISODate(now));
-  downloadFile(fileName, serializeBackup(createBackup(entries, now)));
+  // Mot de passe actif : le fichier est chiffré avec la même clé que l'agenda.
+  const protection = getExportProtection();
+  setBusy(true);
+  try {
+    const backup = protection ? await createEncryptedBackup(entries, now, protection) : createBackup(entries, now);
+    downloadFile(fileName, serializeBackup(backup));
+  } catch (error) {
+    console.error(error);
+    showError("L'export a échoué. Réessaie.");
+    return;
+  } finally {
+    setBusy(false);
+  }
   showMessage([
     `C'est fait : ton agenda (${describeEntries(entries)}) a été exporté dans le fichier « ${fileName} ».`,
-    'Tu le trouveras en général dans le dossier « Téléchargements » de ton appareil. Garde-le en lieu sûr.',
+    'Tu le trouveras en général dans le dossier « Téléchargements » de ton appareil.',
+    protection
+      ? "Ce fichier est chiffré : pour l'importer, il faudra ton mot de passe actuel."
+      : "Ce fichier n'est pas chiffré : toute personne qui l'a peut le lire. Garde-le en lieu sûr.",
   ]);
 
   setSetting(LAST_EXPORT_SETTING, now.toISOString())
@@ -144,6 +156,39 @@ function mergeResultText(plan) {
   return `Import terminé : ${parts.join(' et ')}.`;
 }
 
+/**
+ * Fichier chiffré : demande son mot de passe, puis l'ouvre.
+ * Renvoie la sauvegarde lisible, ou null si l'utilisateur annule.
+ * Lance une BackupError si le fichier est abîmé.
+ */
+async function openSealedBackup(backup, fileName) {
+  const field = passwordField({ label: 'Mot de passe du fichier', autocomplete: 'current-password' });
+  let opened = null;
+  let damaged = null;
+  const confirmed = await openFormDialog({
+    title: 'Fichier protégé',
+    message: [
+      `Le fichier « ${fileName} » est chiffré.`,
+      'Écris le mot de passe qui était actif quand ce fichier a été exporté.',
+    ],
+    content: [field.element],
+    submitLabel: 'Ouvrir le fichier',
+    onSubmit: async () => {
+      if (!field.input.value) return { message: 'Écris le mot de passe.', input: field.input };
+      try {
+        opened = await decryptBackup(backup, field.input.value);
+      } catch (error) {
+        if (!(error instanceof BackupError)) throw error;
+        damaged = error;
+        return null;
+      }
+      return opened ? null : { message: 'Mot de passe incorrect. Réessaie.', input: field.input };
+    },
+  });
+  if (damaged) throw damaged;
+  return confirmed ? opened : null;
+}
+
 /** Lit le fichier choisi, demande quoi faire, puis importe. */
 async function importFile(file) {
   if (busy) return;
@@ -157,6 +202,13 @@ async function importFile(file) {
   let backup;
   try {
     backup = parseBackup(await file.text());
+    if (backup.encrypted) {
+      backup = await openSealedBackup(backup, file.name);
+      if (!backup) {
+        showMessage(CANCELLED);
+        return;
+      }
+    }
   } catch (error) {
     if (error instanceof BackupError) {
       showError(error.message);
@@ -240,7 +292,9 @@ async function importFile(file) {
 export function initBackupSettings() {
   const fileInput = document.getElementById('fichier-a-importer');
 
-  document.getElementById('bouton-exporter').addEventListener('click', exportAgenda);
+  document.getElementById('bouton-exporter').addEventListener('click', () => {
+    exportAgenda();
+  });
   document.getElementById('bouton-importer').addEventListener('click', () => {
     if (!busy) fileInput.click();
   });

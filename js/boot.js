@@ -2,7 +2,8 @@
 // boot.js — Tout premier script exécuté
 // -------------------------------------------------------------
 // Il s'exécute AVANT l'affichage de la page, pour appliquer tout
-// de suite le thème, la police et la taille de texte mémorisés. Sans lui, la
+// de suite le thème, la police, la taille de texte mémorisés et,
+// si besoin, l'écran de verrouillage. Sans lui, la
 // page apparaîtrait une fraction de seconde avec le mauvais thème
 // (un « flash » de lumière désagréable).
 //
@@ -25,6 +26,12 @@
     }
     if (typeof saved.textScale === 'number' && saved.textScale >= 80 && saved.textScale <= 200) {
       document.documentElement.style.fontSize = saved.textScale + '%';
+    }
+    // Mot de passe actif : l'écran de verrouillage s'affiche tout de suite,
+    // l'agenda reste caché. (Ce n'est qu'un indice d'affichage : la vraie
+    // vérification se fait dans js/app.js.)
+    if (saved.locked === true) {
+      document.documentElement.setAttribute('data-locked', '');
     }
   } catch {
     // Rien de grave : on garde simplement le thème par défaut.

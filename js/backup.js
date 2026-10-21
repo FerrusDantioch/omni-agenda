@@ -16,6 +16,11 @@
 //     "entries": [ … les rendez-vous et les tâches … ]
 //   }
 //
+// Si un mot de passe est actif, le fichier est chiffré : à la place
+// de "entries", il contient "encrypted": true, les réglages du calcul
+// de la clé ("kdf") et les données chiffrées ("cipher", "data").
+// Il faut alors le mot de passe pour l'ouvrir (voir js/crypto.js).
+//
 // À l'import, on ne fait JAMAIS confiance au fichier : chaque
 // entrée est vérifiée et nettoyée (voir normalizeEntry) ; les
 // entrées inutilisables sont ignorées et comptées.
@@ -23,6 +28,7 @@
 
 import { APP_NAME, APP_VERSION } from './config.js';
 import { normalizeEntry } from './entries.js';
+import { decryptJson, deriveKey, encryptJson, fromBase64, isValidKdf, toBase64 } from './crypto.js';
 
 export const BACKUP_FORMAT = 'omni-agenda';
 export const BACKUP_VERSION = 1;
@@ -47,6 +53,9 @@ export class BackupError extends Error {
 const NOT_A_BACKUP = "Ce fichier n'est pas une sauvegarde d'Omni-Agenda.";
 const DAMAGED = "Ce fichier est abîmé : il ne peut pas être lu. Essaie avec une autre sauvegarde.";
 
+/** Texte attaché au chiffrement d'une sauvegarde (voir encryptJson). */
+const BACKUP_LABEL = 'sauvegarde';
+
 // ---------------------------------------------------------------
 // Export
 // ---------------------------------------------------------------
@@ -70,6 +79,23 @@ export function createBackup(entries, now = new Date()) {
   };
 }
 
+/**
+ * Prépare une sauvegarde chiffrée. `protection` : { key, kdf } (voir
+ * getExportProtection dans js/security.js). Seules les informations
+ * générales (format, date de l'export) restent lisibles.
+ */
+export async function createEncryptedBackup(entries, now, { key, kdf }) {
+  const { entries: sorted, ...header } = createBackup(entries, now);
+  const { iv, data } = await encryptJson(key, { entries: sorted }, BACKUP_LABEL);
+  return {
+    ...header,
+    encrypted: true,
+    kdf: { ...kdf },
+    cipher: { name: 'AES-GCM', iv: toBase64(iv) },
+    data: toBase64(data),
+  };
+}
+
 /** Transforme la sauvegarde en texte (avec des retraits, pour rester lisible). */
 export function serializeBackup(backup) {
   return JSON.stringify(backup, null, 2);
@@ -85,11 +111,49 @@ function isNewer(a, b) {
 }
 
 /**
+ * Vérifie et nettoie la liste des entrées d'une sauvegarde.
+ * Renvoie { entries, skipped } (skipped = entrées abîmées ou en double, ignorées).
+ */
+function readEntries(list) {
+  if (!Array.isArray(list)) throw new BackupError(DAMAGED);
+  if (list.length > MAX_BACKUP_ENTRIES) {
+    throw new BackupError(`Ce fichier contient trop d'éléments (plus de ${MAX_BACKUP_ENTRIES.toLocaleString('fr-FR')}).`);
+  }
+
+  // Si un même identifiant apparaît deux fois, on garde la version la plus récente.
+  const byId = new Map();
+  let skipped = 0;
+  for (const raw of list) {
+    const entry = normalizeEntry(raw);
+    if (!entry) {
+      skipped += 1;
+      continue;
+    }
+    const previous = byId.get(entry.id);
+    if (previous) skipped += 1;
+    if (!previous || isNewer(entry, previous)) byId.set(entry.id, entry);
+  }
+  return { entries: [...byId.values()], skipped };
+}
+
+/** Vrai si un texte base64 donne exactement `length` octets. */
+function isBase64OfLength(text, length) {
+  try {
+    return typeof text === 'string' && fromBase64(text).length === length;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Lit le texte d'un fichier de sauvegarde et le vérifie.
- * Renvoie { entries, skipped, exportedAt } :
- *  - entries : les entrées valides et nettoyées ;
- *  - skipped : le nombre d'entrées abîmées, ignorées ;
- *  - exportedAt : la date de l'export (ou null si inconnue).
+ * Renvoie :
+ *  - pour un fichier ordinaire : { encrypted: false, entries, skipped, exportedAt }
+ *      entries : les entrées valides et nettoyées ;
+ *      skipped : le nombre d'entrées abîmées, ignorées ;
+ *      exportedAt : la date de l'export (ou null si inconnue) ;
+ *  - pour un fichier chiffré : { encrypted: true, exportedAt, sealed }
+ *      (il faut ensuite l'ouvrir avec decryptBackup et le mot de passe).
  * En cas de problème, lance une BackupError avec un message clair.
  */
 export function parseBackup(text) {
@@ -99,7 +163,7 @@ export function parseBackup(text) {
   let data;
   try {
     // Certains éditeurs de texte ajoutent un caractère invisible au début (« BOM ») : on le retire.
-    data = JSON.parse(text.replace(/^﻿/, ''));
+    data = JSON.parse(text.replace(/^\uFEFF/, ''));
   } catch {
     throw new BackupError(DAMAGED);
   }
@@ -111,33 +175,46 @@ export function parseBackup(text) {
   if (data.version > BACKUP_VERSION) {
     throw new BackupError("Ce fichier vient d'une version plus récente d'Omni-Agenda. Mets l'application à jour, puis réessaie.");
   }
-  if (data.encrypted === true) {
-    throw new BackupError("Ce fichier est protégé par un mot de passe. Cette version d'Omni-Agenda ne sait pas encore l'ouvrir.");
-  }
-  if (!Array.isArray(data.entries)) throw new BackupError(DAMAGED);
-  if (data.entries.length > MAX_BACKUP_ENTRIES) {
-    throw new BackupError(`Ce fichier contient trop d'éléments (plus de ${MAX_BACKUP_ENTRIES.toLocaleString('fr-FR')}).`);
-  }
-
-  // Si un même identifiant apparaît deux fois, on garde la version la plus récente.
-  const byId = new Map();
-  let skipped = 0;
-  for (const raw of data.entries) {
-    const entry = normalizeEntry(raw);
-    if (!entry) {
-      skipped += 1;
-      continue;
-    }
-    const previous = byId.get(entry.id);
-    if (previous) skipped += 1;
-    if (!previous || isNewer(entry, previous)) byId.set(entry.id, entry);
-  }
 
   const exportedAt = typeof data.exportedAt === 'string' && !Number.isNaN(Date.parse(data.exportedAt))
     ? data.exportedAt
     : null;
 
-  return { entries: [...byId.values()], skipped, exportedAt };
+  if (data.encrypted === true) {
+    const valid = isValidKdf(data.kdf) && data.cipher?.name === 'AES-GCM'
+      && isBase64OfLength(data.cipher.iv, 12) && typeof data.data === 'string';
+    if (!valid) throw new BackupError(DAMAGED);
+    return { encrypted: true, exportedAt, sealed: { kdf: data.kdf, iv: data.cipher.iv, data: data.data } };
+  }
+
+  return { encrypted: false, exportedAt, ...readEntries(data.entries) };
+}
+
+/**
+ * Ouvre une sauvegarde chiffrée (renvoyée par parseBackup) avec un mot de passe.
+ * Renvoie la sauvegarde lisible { encrypted: false, entries, skipped, exportedAt },
+ * ou null si le mot de passe est incorrect.
+ * Lance une BackupError si le fichier est abîmé.
+ */
+export async function decryptBackup(backup, password) {
+  const { kdf, iv, data } = backup.sealed;
+  let sealedData;
+  try {
+    sealedData = fromBase64(data);
+  } catch {
+    throw new BackupError(DAMAGED);
+  }
+
+  const key = await deriveKey(password, fromBase64(kdf.salt), kdf.iterations);
+  let content;
+  try {
+    content = await decryptJson(key, { iv: fromBase64(iv), data: sealedData }, BACKUP_LABEL);
+  } catch {
+    return null; // Mauvais mot de passe (ou fichier modifié depuis l'export).
+  }
+
+  if (!content || typeof content !== 'object') throw new BackupError(DAMAGED);
+  return { encrypted: false, exportedAt: backup.exportedAt, ...readEntries(content.entries) };
 }
 
 /**

@@ -63,52 +63,91 @@ export function closeModal(dialog) {
 // ---------------------------------------------------------------
 
 /**
+ * Affiche une petite fenêtre temporaire et gère sa fermeture.
+ *  - Comme les autres fenêtres, elle ajoute une étape dans l'historique :
+ *    le bouton « retour » du téléphone ferme seulement cette fenêtre.
+ *  - Échap ou « retour » donnent la réponse `cancelAnswer`.
+ *  - Pendant un traitement (`isBusy()` vrai, ex. : chiffrement en cours),
+ *    la fenêtre reste ouverte jusqu'à la fin du traitement.
+ * Renvoie { finish, stayOpen, answered } :
+ *  - finish(réponse) ferme la fenêtre avec cette réponse ;
+ *  - stayOpen() est à appeler quand un traitement se termine sans fermer la fenêtre ;
+ *  - answered est une promesse, tenue avec la réponse une fois l'étape d'historique
+ *    retirée : la suite (une autre fenêtre, par exemple) part d'un historique propre.
+ */
+function presentDialog(dialog, focusTarget, cancelAnswer, isBusy = () => false) {
+  const token = `question-${Date.now()}-${++tokenCounter}`;
+  let answer = cancelAnswer;
+  let finishing = false;
+  let settled = false;
+  // Vrai si « retour » a été pressé pendant un traitement : l'étape est déjà retirée.
+  let stepRemoved = false;
+  let resolveAnswered;
+  const answered = new Promise((resolve) => {
+    resolveAnswered = resolve;
+  });
+
+  const settle = () => {
+    if (settled) return;
+    settled = true;
+    window.removeEventListener('popstate', onPopState);
+    if (dialog.open) dialog.close();
+    dialog.remove();
+    resolveAnswered(answer);
+  };
+  // Étape quittée (bouton « retour », ou recul demandé par finish) : c'est fini.
+  const onPopState = () => {
+    if (history.state?.omniModal === token) return;
+    if (isBusy() && !finishing) {
+      stepRemoved = true;
+      return;
+    }
+    settle();
+  };
+  const finish = (value) => {
+    if (settled || finishing) return;
+    finishing = true;
+    answer = value;
+    if (dialog.open) dialog.close();
+    if (!stepRemoved && history.state?.omniModal === token) history.back();
+    else settle();
+  };
+  const stayOpen = () => {
+    if (settled) return;
+    if (stepRemoved) {
+      stepRemoved = false;
+      history.pushState({ omniModal: token }, '');
+    }
+    if (!dialog.open) dialog.showModal();
+  };
+
+  dialog.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    if (!isBusy()) finish(cancelAnswer);
+  });
+  // Sur certains téléphones, le bouton « retour » ferme la fenêtre directement :
+  // on le traite comme « Annuler » (sauf pendant un traitement, qui décidera).
+  dialog.addEventListener('close', () => {
+    if (!finishing && !isBusy()) finish(cancelAnswer);
+  });
+
+  history.pushState({ omniModal: token }, '');
+  window.addEventListener('popstate', onPopState);
+  document.body.append(dialog);
+  dialog.showModal();
+  focusTarget.focus();
+  return { finish, stayOpen, answered };
+}
+
+/**
  * Affiche une petite fenêtre de question et attend la réponse.
- *  - `buttons` associe chaque bouton à la réponse qu'il donne ;
- *  - Échap ou le bouton « retour » donnent `cancelAnswer`.
- * Comme les autres fenêtres, elle ajoute une étape dans l'historique :
- * le bouton « retour » du téléphone ferme seulement cette fenêtre.
- * La réponse n'est donnée qu'une fois cette étape retirée : la suite
- * (une autre fenêtre, par exemple) part ainsi d'un historique propre.
+ * `buttons` associe chaque bouton à la réponse qu'il donne ;
+ * Échap ou le bouton « retour » donnent `cancelAnswer`.
  */
 function askInDialog(dialog, buttons, cancelAnswer, focusTarget) {
-  return new Promise((resolve) => {
-    const token = `question-${Date.now()}-${++tokenCounter}`;
-    let answer = cancelAnswer;
-    let settled = false;
-
-    const settle = () => {
-      if (settled) return;
-      settled = true;
-      window.removeEventListener('popstate', onPopState);
-      if (dialog.open) dialog.close();
-      dialog.remove();
-      resolve(answer);
-    };
-    // Étape quittée (bouton « retour », ou recul demandé ci-dessous) : c'est fini.
-    const onPopState = () => {
-      if (history.state?.omniModal !== token) settle();
-    };
-    const finish = (value) => {
-      if (settled || !dialog.open) return;
-      answer = value;
-      dialog.close();
-      if (history.state?.omniModal === token) history.back();
-      else settle();
-    };
-
-    for (const [button, value] of buttons) button.addEventListener('click', () => finish(value));
-    dialog.addEventListener('cancel', (event) => {
-      event.preventDefault();
-      finish(cancelAnswer);
-    });
-
-    history.pushState({ omniModal: token }, '');
-    window.addEventListener('popstate', onPopState);
-    document.body.append(dialog);
-    dialog.showModal();
-    focusTarget.focus();
-  });
+  const control = presentDialog(dialog, focusTarget, cancelAnswer);
+  for (const [button, value] of buttons) button.addEventListener('click', () => control.finish(value));
+  return control.answered;
 }
 
 /** Un texte, ou une liste de textes, devient un ou plusieurs paragraphes. */
@@ -182,4 +221,82 @@ export function chooseAction({ title, message, choices, cancelLabel = 'Annuler' 
   );
 
   return askInDialog(dialog, buttons, null, cancelButton);
+}
+
+/**
+ * Fenêtre avec un petit formulaire (ex. : taper un mot de passe).
+ *  - `content` : les champs, déjà construits ;
+ *  - `onSubmit()` est appelée quand on valide. Elle renvoie :
+ *      null → tout va bien, la fenêtre se ferme ;
+ *      un texte, ou { message, input } → le formulaire reste ouvert et
+ *      affiche ce message (et place le curseur dans `input`).
+ * Pendant le traitement, les boutons sont désactivés.
+ * Renvoie une promesse : vrai si le formulaire a été validé, faux si annulé.
+ */
+export function openFormDialog({ title, message, content, submitLabel, danger = false, cancelLabel = 'Annuler', onSubmit }) {
+  const titleId = `formulaire-titre-${++tokenCounter}`;
+  const messageId = `${titleId}-message`;
+
+  const errorZone = el('p', { class: 'form-error', role: 'alert', hidden: true });
+  const cancelButton = el('button', { type: 'button', class: 'btn' }, cancelLabel);
+  const submitButton = el('button', { type: 'submit', class: danger ? 'btn btn-danger' : 'btn btn-primary' }, submitLabel);
+  const form = el('form', { class: 'panel-content', novalidate: true },
+    el('div', { class: 'panel-body' },
+      el('h2', { id: titleId }, title),
+      message ? el('div', { id: messageId, class: 'dialog-message' }, paragraphs(message)) : null,
+      content,
+      errorZone,
+    ),
+    el('div', { class: 'panel-footer' }, cancelButton, submitButton),
+  );
+  const dialog = el('dialog', {
+    class: 'panel panel-small',
+    'aria-labelledby': titleId,
+    'aria-describedby': message ? messageId : null,
+  }, form);
+
+  let busy = false;
+  const setBusy = (value) => {
+    busy = value;
+    submitButton.disabled = value;
+    cancelButton.disabled = value;
+    submitButton.textContent = value ? 'Un instant…' : submitLabel;
+    form.setAttribute('aria-busy', String(value));
+  };
+
+  const control = presentDialog(dialog, form.querySelector('input') ?? cancelButton, false, () => busy);
+  cancelButton.addEventListener('click', () => control.finish(false));
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (busy) return;
+    errorZone.hidden = true;
+    for (const field of form.querySelectorAll('[aria-invalid]')) field.removeAttribute('aria-invalid');
+
+    setBusy(true);
+    let problem;
+    try {
+      problem = await onSubmit();
+    } catch (error) {
+      console.error(error);
+      problem = "Une erreur est survenue : rien n'a été modifié. Réessaie.";
+    }
+    setBusy(false);
+
+    if (!problem) {
+      control.finish(true);
+      return;
+    }
+    control.stayOpen();
+    const { message: text, input = null } = typeof problem === 'string' ? { message: problem } : problem;
+    errorZone.textContent = text;
+    errorZone.hidden = false;
+    if (input) {
+      input.setAttribute('aria-invalid', 'true');
+      input.focus();
+      input.select?.();
+    }
+  });
+
+  return control.answered;
 }

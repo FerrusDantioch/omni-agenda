@@ -6,8 +6,9 @@
 // envoyé sur internet.
 //
 // La base contient deux « rayons » (appelés object stores) :
-//   - settings : les réglages (thème, taille du texte, date du dernier export…)
-//   - entries  : les rendez-vous et les tâches
+//   - settings : les réglages (thème, taille du texte, date du dernier export,
+//                protection par mot de passe…)
+//   - entries  : les rendez-vous et les tâches (chiffrés si un mot de passe est actif)
 // =============================================================
 
 const DB_NAME = 'omni-agenda';
@@ -63,16 +64,19 @@ function openDatabase() {
 }
 
 /**
- * Exécute une opération dans un « rayon » de la base et attend
- * qu'elle soit vraiment enregistrée avant de répondre.
+ * Exécute une opération dans la base et attend qu'elle soit vraiment
+ * enregistrée avant de répondre.
+ *  - `storeNames` : un rayon (texte) ou plusieurs (liste) ;
+ *  - `action` reçoit le rayon, ou la transaction entière s'il y en a plusieurs.
+ * Une « transaction » est un groupe d'opérations fait en « tout ou rien ».
  */
-async function runTransaction(storeName, mode, action) {
+async function runTransaction(storeNames, mode, action) {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction(storeName, mode);
+    const transaction = db.transaction(storeNames, mode);
     let request;
     try {
-      request = action(transaction.objectStore(storeName));
+      request = action(Array.isArray(storeNames) ? transaction : transaction.objectStore(storeNames));
     } catch (error) {
       // Une opération a échoué : on annule TOUTE la transaction,
       // pour ne jamais garder un enregistrement à moitié fait.
@@ -146,6 +150,35 @@ export function replaceAllEntryRecords(records) {
     store.clear();
     for (const record of records) store.put(record);
   });
+}
+
+// ---------------------------------------------------------------
+// Mot de passe (voir js/security.js)
+// ---------------------------------------------------------------
+
+/** Nom du réglage qui contient la protection par mot de passe (jamais le mot de passe lui-même). */
+export const PROTECTION_SETTING = 'protection';
+
+/**
+ * Remplace toutes les entrées ET la protection, en une seule transaction.
+ * Sert à activer, changer ou désactiver le mot de passe : en cas de
+ * problème, rien ne change (on ne garde jamais un agenda à moitié chiffré).
+ * `protection` : la nouvelle protection, ou null pour la retirer.
+ */
+export function replaceProtectedData(protection, records) {
+  return runTransaction([STORE_SETTINGS, STORE_ENTRIES], 'readwrite', (transaction) => {
+    const entries = transaction.objectStore(STORE_ENTRIES);
+    entries.clear();
+    for (const record of records) entries.put(record);
+    const settings = transaction.objectStore(STORE_SETTINGS);
+    if (protection) settings.put(protection, PROTECTION_SETTING);
+    else settings.delete(PROTECTION_SETTING);
+  });
+}
+
+/** Efface tout l'agenda et le mot de passe (« mot de passe oublié »). Les réglages d'apparence restent. */
+export function eraseAgenda() {
+  return replaceProtectedData(null, []);
 }
 
 // ---------------------------------------------------------------

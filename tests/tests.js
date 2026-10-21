@@ -12,21 +12,24 @@ import {
 import { htmlToText, sanitizeHtml, textToHtml } from '../js/sanitize.js';
 import { buildEntry, createId, getEventSchedule, normalizeEntry } from '../js/entries.js';
 import {
-  BackupError, backupFileName, createBackup, describeEntries, parseBackup, planMerge, serializeBackup,
+  BackupError, backupFileName, createBackup, createEncryptedBackup, decryptBackup, describeEntries, parseBackup,
+  planMerge, serializeBackup,
 } from '../js/backup.js';
+import {
+  createProtection, decryptJson, encryptJson, fromBase64, isValidProtection, openProtection, toBase64,
+} from '../js/crypto.js';
+import { checkNewPassword } from '../js/security.js';
 import { buildAgendaIndex } from '../js/views/agenda-data.js';
 import { dayView } from '../js/views/day-view.js';
 import { weekView } from '../js/views/week-view.js';
 
+// Les tests sont d'abord enregistrés, puis lancés un par un à la fin
+// (certains, comme le chiffrement, prennent un peu de temps).
+const tests = [];
 const results = [];
 
 function test(name, fn) {
-  try {
-    fn();
-    results.push({ name, ok: true });
-  } catch (error) {
-    results.push({ name, ok: false, message: error.message });
-  }
+  tests.push({ name, fn });
 }
 
 function equal(actual, expected, label = '') {
@@ -266,7 +269,7 @@ test('Un agenda exporté puis réimporté est identique', () => {
   const byId = (list) => [...list].sort((a, b) => a.id.localeCompare(b.id));
   equal(byId(result.entries), byId(entries));
   equal([result.skipped, result.exportedAt], [0, '2026-10-21T08:30:00.000Z']);
-  equal(parseBackup(`﻿${text}`).entries.length, 2, 'caractère invisible (BOM) au début');
+  equal(parseBackup(`\uFEFF${text}`).entries.length, 2, 'caractère invisible (BOM) au début');
   equal(backupFileName('2026-10-21'), 'omni-agenda-2026-10-21.json');
 });
 
@@ -279,7 +282,7 @@ test('Un fichier vide, abîmé ou étranger est refusé avec un message clair', 
   failsWith(() => parseBackup('{"format":"omni-agenda","version":1}'), 'abîmé');
   failsWith(() => parseBackup('{"format":"omni-agenda","version":"1","entries":[]}'), 'abîmé');
   failsWith(() => parseBackup(backupText([], { version: 2 })), 'version plus récente');
-  failsWith(() => parseBackup(backupText([], { encrypted: true })), 'mot de passe');
+  failsWith(() => parseBackup(backupText([], { encrypted: true })), 'abîmé');
 });
 
 test('À l’import, les entrées piégées sont nettoyées, les abîmées ignorées', () => {
@@ -320,6 +323,109 @@ test('Résumé du contenu en français (singulier et pluriel)', () => {
   equal(describeEntries([sampleTask('a', '2026-10-01'), sampleTask('b', '2026-10-01')]), '2 tâches');
   equal(describeEntries([sampleEvent('e')]), '1 rendez-vous');
   equal(describeEntries([sampleEvent('e'), sampleEvent('f'), sampleTask('a', '2026-10-01')]), '2 rendez-vous et 1 tâche');
+});
+
+// ---------------------------------------------------------------
+// Mot de passe et chiffrement
+// ---------------------------------------------------------------
+// Pour aller vite, ces tests utilisent 100 000 tours de calcul
+// (le minimum accepté) au lieu de 600 000.
+const TEST_ITERATIONS = 100000;
+
+/** Vérifie qu'une promesse échoue. */
+async function rejects(promise, label) {
+  try {
+    await promise;
+  } catch {
+    return;
+  }
+  throw new Error(`${label} : aucune erreur, alors qu'une erreur était attendue`);
+}
+
+test('Base64 : des octets écrits en texte puis relus à l’identique', () => {
+  const all = new Uint8Array(256).map((_, index) => index);
+  equal([...fromBase64(toBase64(all))], [...all]);
+  const big = new Uint8Array(100000).map((_, index) => (index * 31 + 7) % 256);
+  isTrue(fromBase64(toBase64(big)).every((value, index) => value === big[index]), 'gros contenu (100 000 octets)');
+});
+
+test('Le bon mot de passe ouvre la protection, un mauvais non', async () => {
+  const { protection } = await createProtection('mon chat dort', TEST_ITERATIONS);
+  isTrue(isValidProtection(protection), 'protection bien formée');
+  isTrue(await openProtection(protection, 'mon chat dort'), 'bon mot de passe');
+  equal(await openProtection(protection, 'mon chat dort '), null, 'espace en plus');
+  equal(await openProtection(protection, 'Mon chat dort'), null, 'majuscule');
+  equal(await openProtection(protection, ''), null, 'vide');
+});
+
+test('Le mot de passe n’est jamais enregistré, et deux protections ont des sels différents', async () => {
+  const first = await createProtection('secret-très-secret', TEST_ITERATIONS);
+  const second = await createProtection('secret-très-secret', TEST_ITERATIONS);
+  const saved = JSON.stringify(first.protection);
+  isTrue(!saved.includes('secret'), 'le mot de passe n’apparaît pas');
+  isTrue(first.protection.kdf.salt !== second.protection.kdf.salt, 'sels différents');
+  equal(Object.keys(first.protection), ['version', 'kdf', 'check']);
+});
+
+test('Accents : « é » tapé de deux façons différentes donne la même clé', async () => {
+  const { protection } = await createProtection('café crème', TEST_ITERATIONS);
+  isTrue(await openProtection(protection, 'cafe\u0301 cre\u0300me'), 'accents décomposés acceptés');
+});
+
+test('Chiffrer puis déchiffrer redonne la même valeur ; chaque chiffrement est différent', async () => {
+  const { key } = await createProtection('mot de passe', TEST_ITERATIONS);
+  const value = { titre: 'Dentiste', heure: '14:00', accents: 'éàçœ€' };
+  const a = await encryptJson(key, value, 'entree:1');
+  const b = await encryptJson(key, value, 'entree:1');
+  equal(await decryptJson(key, a, 'entree:1'), value);
+  isTrue(toBase64(a.data) !== toBase64(b.data), 'deux chiffrements du même contenu sont différents');
+  isTrue(!new TextDecoder().decode(a.data).includes('Dentiste'), 'le texte chiffré est illisible');
+});
+
+test('Une donnée chiffrée modifiée, déplacée ou ouverte avec une autre clé est refusée', async () => {
+  const { key } = await createProtection('mot de passe', TEST_ITERATIONS);
+  const other = (await createProtection('autre mot de passe', TEST_ITERATIONS)).key;
+  const sealed = await encryptJson(key, { titre: 'Secret' }, 'entree:a');
+  const tampered = { iv: sealed.iv, data: sealed.data.slice() };
+  tampered.data[0] ^= 1;
+  await rejects(decryptJson(key, tampered, 'entree:a'), 'donnée modifiée');
+  await rejects(decryptJson(key, sealed, 'entree:b'), 'donnée déplacée vers une autre entrée');
+  await rejects(decryptJson(other, sealed, 'entree:a'), 'autre clé');
+});
+
+test('Sauvegarde chiffrée : illisible sans le mot de passe, identique avec', async () => {
+  const { key, protection } = await createProtection('mot de passe du fichier', TEST_ITERATIONS);
+  const entries = [sampleTask('t1', '2026-10-05', 'Payer le loyer'), sampleEvent('e1')];
+  const text = serializeBackup(await createEncryptedBackup(entries, new Date('2026-10-21T08:30:00Z'), { key, kdf: protection.kdf }));
+  isTrue(!text.includes('Payer le loyer') && !text.includes('2026-10-21T14'), 'aucun contenu lisible dans le fichier');
+  const sealed = parseBackup(text);
+  equal([sealed.encrypted, sealed.exportedAt], [true, '2026-10-21T08:30:00.000Z']);
+  equal(await decryptBackup(sealed, 'mauvais mot de passe'), null, 'mauvais mot de passe');
+  const opened = await decryptBackup(sealed, 'mot de passe du fichier');
+  equal(opened.entries.map((entry) => entry.title).sort(), ['Payer le loyer', 'Rendez-vous']);
+  equal(opened.skipped, 0);
+});
+
+test('Sauvegarde chiffrée abîmée ou piégée : refusée', async () => {
+  const { key, protection } = await createProtection('mot de passe', TEST_ITERATIONS);
+  const good = await createEncryptedBackup([sampleTask('t1', '2026-10-05')], new Date(), { key, kdf: protection.kdf });
+  const variant = (change) => JSON.stringify(change(structuredClone(good)));
+  failsWith(() => parseBackup(variant((b) => { b.kdf.iterations = 1e9; return b; })), 'abîmé');
+  failsWith(() => parseBackup(variant((b) => { b.kdf.iterations = 1000; return b; })), 'abîmé');
+  failsWith(() => parseBackup(variant((b) => { b.kdf.name = 'autre'; return b; })), 'abîmé');
+  failsWith(() => parseBackup(variant((b) => { b.cipher.iv = 'AAAA'; return b; })), 'abîmé');
+  failsWith(() => parseBackup(variant((b) => { delete b.data; return b; })), 'abîmé');
+  const corrupted = parseBackup(variant((b) => { b.data = `${b.data.slice(0, -8)}AAAAAAA=`; return b; }));
+  equal(await decryptBackup(corrupted, 'mot de passe'), null, 'contenu modifié : refusé');
+});
+
+test('Règles du nouveau mot de passe', () => {
+  equal(checkNewPassword('', '')?.field, 'password', 'vide');
+  equal(checkNewPassword('court', 'court')?.field, 'password', 'trop court');
+  equal(checkNewPassword('x'.repeat(201), 'x'.repeat(201))?.field, 'password', 'trop long');
+  equal(checkNewPassword('mon chat dort', 'mon chat dors')?.field, 'confirmation', 'confirmation différente');
+  equal(checkNewPassword('mon chat dort', 'mon chat dort'), null, 'valide');
+  equal(checkNewPassword('🐱🐱🐱🐱🐱🐱🐱🐱', '🐱🐱🐱🐱🐱🐱🐱🐱'), null, '8 émojis = 8 caractères');
 });
 
 // ---------------------------------------------------------------
@@ -378,8 +484,17 @@ test('Rangement des entrées : par jour, en retard, sans échéance', () => {
 });
 
 // ---------------------------------------------------------------
-// Affichage des résultats
+// Lancement des tests, un par un, puis affichage des résultats
 // ---------------------------------------------------------------
+for (const { name, fn } of tests) {
+  try {
+    await fn();
+    results.push({ name, ok: true });
+  } catch (error) {
+    results.push({ name, ok: false, message: error.message });
+  }
+}
+
 const list = document.getElementById('resultats');
 for (const result of results) {
   const item = document.createElement('li');

@@ -59,6 +59,23 @@ export function icon(name) {
 }
 
 // ---------------------------------------------------------------
+// Message dans une zone de la page
+// ---------------------------------------------------------------
+
+/**
+ * Affiche un message (un texte ou une liste de textes) dans `zone`,
+ * une zone « role=status » lue à voix haute par les lecteurs d'écran.
+ * `isError` : présentation d'erreur (bordure dans la couleur d'alerte).
+ */
+export function showNotice(zone, lines, { isError = false } = {}) {
+  const texts = (Array.isArray(lines) ? lines : [lines]).filter(Boolean);
+  const notice = el('div', { class: isError ? 'notice notice-error' : 'notice' }, texts.map((text) => el('p', {}, text)));
+  // On vide puis on remplit : un message identique au précédent est ainsi annoncé de nouveau.
+  zone.replaceChildren();
+  requestAnimationFrame(() => zone.replaceChildren(notice));
+}
+
+// ---------------------------------------------------------------
 // Garder le focus clavier pendant un réaffichage
 // ---------------------------------------------------------------
 

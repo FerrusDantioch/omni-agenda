@@ -23,8 +23,10 @@
   <link rel="stylesheet" href="css/entries.css">
   <link rel="stylesheet" href="css/agenda.css">
   <link rel="stylesheet" href="css/paper.css">
+  <link rel="stylesheet" href="css/security.css">
 
-  <!-- Applique le thème mémorisé AVANT l'affichage (évite un flash de couleur). -->
+  <!-- Applique le thème mémorisé AVANT l'affichage (évite un flash de couleur)
+       et affiche tout de suite l'écran de verrouillage si un mot de passe est actif. -->
   <script src="js/boot.js"></script>
   <!-- Le programme principal de l'application. -->
   <script type="module" src="js/app.js"></script>
@@ -40,18 +42,35 @@
       <span class="brand-name">Omni-Agenda</span>
     </a>
     <nav class="header-actions" aria-label="Menu principal">
+      <!-- Visible seulement si un mot de passe est actif (js/ui/password-settings.js). -->
+      <button type="button" class="btn btn-ghost" id="bouton-verrouiller" aria-label="Verrouiller l'agenda" hidden>
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        <span class="header-label">Verrouiller</span>
+      </button>
       <a class="btn btn-ghost" href="#/reglages">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
           <circle cx="12" cy="12" r="3"/>
         </svg>
-        <span>Réglages</span>
+        <span class="header-label">Réglages</span>
       </a>
     </nav>
   </header>
 
   <!-- Bandeau d'information (caché tant qu'il n'y a rien à dire). -->
   <div id="bandeau" class="banner" role="status" hidden></div>
+
+  <!-- ============ Écran de verrouillage (si un mot de passe est actif) ============
+       Affiché seulement quand <html> porte l'attribut data-locked ; le formulaire
+       est construit par js/ui/lock-screen.js. -->
+  <section class="lock-screen" id="ecran-verrouillage" aria-labelledby="titre-verrouillage">
+    <div class="lock-card">
+      <img class="lock-logo" src="assets/icons/logo.svg" alt="" width="88" height="88">
+      <h1 id="titre-verrouillage">Omni-Agenda</h1>
+      <p>Ton agenda est protégé par un mot de passe.</p>
+      <div id="verrouillage-formulaire"></div>
+    </div>
+  </section>
 
   <main id="contenu" class="app-main" tabindex="-1">
 
@@ -161,6 +180,13 @@
         <input type="file" id="fichier-a-importer" accept=".json,application/json" hidden>
         <!-- Résultat de l'export ou de l'import, lu par les lecteurs d'écran. -->
         <div id="message-sauvegarde" role="status" aria-live="polite"></div>
+      </div>
+
+      <!-- Mot de passe facultatif, géré par js/ui/password-settings.js. -->
+      <div class="card">
+        <h2 id="titre-mot-de-passe" tabindex="-1">Mot de passe</h2>
+        <div id="reglages-mot-de-passe"></div>
+        <div id="message-mot-de-passe" role="status" aria-live="polite"></div>
       </div>
 
       <div class="card">

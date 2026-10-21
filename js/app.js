@@ -5,8 +5,9 @@
 //   1. il lit les réglages mémorisés ;
 //   2. il applique le thème, la police et la taille du texte ;
 //   3. il prépare les écrans et la fenêtre des entrées ;
-//   4. il charge les rendez-vous et les tâches ;
-//   5. il affiche l'agenda et démarre la navigation entre écrans.
+//   4. si un mot de passe est actif, il attend le bon mot de passe ;
+//   5. il charge les rendez-vous et les tâches ;
+//   6. il affiche l'agenda et démarre la navigation entre écrans.
 // =============================================================
 
 import { getSetting, setSetting } from './storage.js';
@@ -17,6 +18,9 @@ import { startRouter } from './router.js';
 import { initSettings } from './ui/settings.js';
 import { initAbout } from './ui/about.js';
 import { initBackupSettings } from './ui/backup-settings.js';
+import { initPasswordSettings } from './ui/password-settings.js';
+import { setLocked, showLockScreen } from './ui/lock-screen.js';
+import { loadProtection } from './security.js';
 import { initEntryPanel, openEntryDetails, openNewEntry } from './ui/entry-panel.js';
 import { showToast } from './ui/toast.js';
 import { DEFAULT_VIEW, getAgendaDate, initAgendaView } from './views/agenda-view.js';
@@ -65,7 +69,23 @@ async function start() {
   document.getElementById('bouton-nouvelle-tache').addEventListener('click', () =>
     openNewEntry('task', { defaultDate: getAgendaDate() }));
 
-  // 4. Rendez-vous et tâches.
+  // 4. Mot de passe : s'il est actif, l'agenda reste caché jusqu'au bon mot de passe.
+  let wasLocked = false;
+  if (storageAvailable) {
+    try {
+      wasLocked = await loadProtection();
+    } catch (error) {
+      console.error('Protection par mot de passe illisible :', error);
+      setLocked(true);
+      showBanner("Les réglages du mot de passe sont abîmés sur cet appareil : ton agenda ne peut pas être ouvert.");
+      return;
+    }
+    if (wasLocked) await showLockScreen();
+  }
+  setLocked(false);
+  initPasswordSettings();
+
+  // 5. Rendez-vous et tâches.
   if (storageAvailable) {
     try {
       await loadEntries();
@@ -75,7 +95,7 @@ async function start() {
     }
   }
 
-  // 5. L'agenda est dessiné après le chargement : pas de clignotement.
+  // 6. L'agenda est dessiné après le chargement : pas de clignotement.
   initAgendaView({
     initialView: settings.agendaView,
     onOpen: openEntryDetails,
@@ -92,6 +112,8 @@ async function start() {
   });
 
   startRouter();
+  // Après le déverrouillage, le curseur clavier va sur le contenu de l'application.
+  if (wasLocked) document.getElementById('contenu').focus({ preventScroll: true });
 }
 
 start();
