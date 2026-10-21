@@ -12,7 +12,7 @@
 // et <br>. Le texte collé depuis ailleurs arrive sans mise en forme.
 // =============================================================
 
-import { el } from './dom.js';
+import { el, setText } from './dom.js';
 import { sanitizeToFragment } from '../sanitize.js';
 
 /** Couleurs de surlignage (mêmes noms que dans sanitize.js et entries.css). */
@@ -171,7 +171,7 @@ export function createRichEditor({ id, labelId, describedBy = '', initialHtml = 
   const hint = el('p', { class: 'editor-hint', role: 'status' });
   let hintTimer = null;
   const showHint = (text) => {
-    hint.textContent = text;
+    setText(hint, text);
     clearTimeout(hintTimer);
     hintTimer = setTimeout(() => {
       hint.textContent = '';

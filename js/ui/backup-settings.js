@@ -12,7 +12,7 @@
 //    une confirmation, car il efface l'agenda actuel.
 // =============================================================
 
-import { el, showNotice } from './dom.js';
+import { el, setText, showNotice } from './dom.js';
 import { chooseAction, confirmAction, openFormDialog } from './dialogs.js';
 import { passwordField } from './password-field.js';
 import { getSetting, setSetting } from '../storage.js';
@@ -70,9 +70,9 @@ async function showLastExport() {
   } catch {
     // Stockage indisponible : on affiche simplement le texte par défaut.
   }
-  line.textContent = typeof lastExport === 'string' && !Number.isNaN(Date.parse(lastExport))
+  setText(line, typeof lastExport === 'string' && !Number.isNaN(Date.parse(lastExport))
     ? `Dernier export : le ${formatMoment(new Date(lastExport))}.`
-    : "Tu n'as encore jamais exporté ton agenda.";
+    : "Tu n'as encore jamais exporté ton agenda.");
 }
 
 /** Fait « télécharger » un fichier fabriqué ici même (rien ne passe par internet). */

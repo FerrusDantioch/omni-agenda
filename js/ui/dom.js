@@ -6,6 +6,41 @@
 // l'utilisateur ne peut jamais être pris pour du code.
 // =============================================================
 
+// ---------------------------------------------------------------
+// Typographie française
+// ---------------------------------------------------------------
+
+/**
+ * En français, on met une espace avant « : ; ! ? » et à l'intérieur
+ * des guillemets « ». Cette espace doit être « insécable » : elle
+ * empêche un passage à la ligne qui laisserait « : » seul en début
+ * de ligne. Cette fonction remplace ces espaces par des insécables.
+ */
+export function frenchSpacing(text) {
+  return text.replace(/ (?=[:;!?»])/g, ' ').replace(/« /g, '« ');
+}
+
+/** Remplace le texte d'un élément, avec la typographie française. */
+export function setText(node, text) {
+  node.textContent = frenchSpacing(text);
+}
+
+/**
+ * Applique la typographie française aux textes déjà présents dans la
+ * page (ceux écrits dans index.html). Les zones de saisie ne sont pas touchées.
+ */
+export function applyFrenchSpacing(root) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode: (node) => (node.parentElement?.closest('script, style, textarea, [contenteditable]')
+      ? NodeFilter.FILTER_REJECT
+      : NodeFilter.FILTER_ACCEPT),
+  });
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const fixed = frenchSpacing(node.nodeValue);
+    if (fixed !== node.nodeValue) node.nodeValue = fixed;
+  }
+}
+
 /**
  * Crée un élément HTML.
  * Exemple : el('button', { class: 'btn', type: 'button', onclick: maFonction }, 'Valider')
@@ -26,8 +61,9 @@ export function el(tag, attributes = {}, ...children) {
 
   for (const child of children.flat()) {
     if (child === null || child === undefined || child === false) continue;
-    // Un texte est toujours inséré comme du texte, jamais comme du code.
-    element.append(child instanceof Node ? child : String(child));
+    // Un texte est toujours inséré comme du texte, jamais comme du code
+    // (et avec la typographie française).
+    element.append(child instanceof Node ? child : frenchSpacing(String(child)));
   }
 
   return element;

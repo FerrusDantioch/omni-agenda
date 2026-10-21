@@ -11,7 +11,7 @@
 // données. La seule solution est de tout effacer sur cet appareil.
 // =============================================================
 
-import { el } from './dom.js';
+import { el, setText } from './dom.js';
 import { confirmAction } from './dialogs.js';
 import { passwordField } from './password-field.js';
 import { eraseEverything, unlock } from '../security.js';
@@ -84,7 +84,7 @@ export function showLockScreen() {
 
     let busy = false;
     const fail = (message) => {
-      error.textContent = message;
+      setText(error, message);
       field.input.setAttribute('aria-invalid', 'true');
       field.input.focus();
       field.input.select();

@@ -5,7 +5,7 @@
 // d'erreur sont écrits en français, sous le champ concerné.
 // =============================================================
 
-import { el } from './dom.js';
+import { el, setText } from './dom.js';
 import {
   LIMITS, PRIORITIES, REMINDER_OPTIONS, DEFAULT_PRIORITY, buildEntry, getEventSchedule,
 } from '../entries.js';
@@ -79,10 +79,10 @@ function reminderHint(select) {
   const hint = el('p', { class: 'field-hint' });
   const update = () => {
     const permission = notificationPermission();
-    if (select.value === '' || permission === 'granted') hint.textContent = '';
-    else if (permission === 'unsupported') hint.textContent = 'Ce navigateur ne peut pas afficher de rappels.';
-    else if (permission === 'denied') hint.textContent = 'Les rappels sont bloqués par le navigateur : voir Réglages → Rappels.';
-    else hint.textContent = 'Pour recevoir ce rappel, autorise les rappels dans Réglages → Rappels.';
+    if (select.value === '' || permission === 'granted') setText(hint, '');
+    else if (permission === 'unsupported') setText(hint, 'Ce navigateur ne peut pas afficher de rappels.');
+    else if (permission === 'denied') setText(hint, 'Les rappels sont bloqués par le navigateur : voir Réglages → Rappels.');
+    else setText(hint, 'Pour recevoir ce rappel, autorise les rappels dans Réglages → Rappels.');
     hint.hidden = hint.textContent === '';
   };
   select.addEventListener('change', update);
@@ -252,7 +252,7 @@ export function renderEntryForm({
       const field = form.querySelector(`[data-field="${name}"]`);
       if (!field) continue;
       const errorNode = field.querySelector('.field-error');
-      errorNode.textContent = message;
+      setText(errorNode, message);
       errorNode.hidden = false;
       const control = field.querySelector('input, select, textarea, .rich-editor');
       control.setAttribute('aria-invalid', 'true');
@@ -261,7 +261,7 @@ export function renderEntryForm({
         firstInvalid = control;
       }
     }
-    formError.textContent = 'Certains champs sont à corriger.';
+    setText(formError, 'Certains champs sont à corriger.');
     formError.hidden = false;
     firstInvalid?.focus();
   };
@@ -297,7 +297,7 @@ export function renderEntryForm({
       savedSnapshot = snapshot();
     } catch (error) {
       console.error("Échec de l'enregistrement :", error);
-      formError.textContent = "L'enregistrement a échoué. Réessaie. Si le problème continue, vérifie l'espace libre sur l'appareil.";
+      setText(formError, "L'enregistrement a échoué. Réessaie. Si le problème continue, vérifie l'espace libre sur l'appareil.");
       formError.hidden = false;
     } finally {
       submitButton.disabled = false;

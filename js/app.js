@@ -24,7 +24,7 @@ import { initAppSettings } from './ui/app-settings.js';
 import { loadProtection } from './security.js';
 import { startOffline } from './offline.js';
 import { startReminders } from './notifications.js';
-import { el } from './ui/dom.js';
+import { applyFrenchSpacing, el, setText } from './ui/dom.js';
 import { initEntryPanel, openEntryDetails, openNewEntry } from './ui/entry-panel.js';
 import { showToast } from './ui/toast.js';
 import { DEFAULT_VIEW, getAgendaDate, initAgendaView } from './views/agenda-view.js';
@@ -32,7 +32,7 @@ import { DEFAULT_VIEW, getAgendaDate, initAgendaView } from './views/agenda-view
 /** Affiche un message dans le bandeau sous la barre du haut. */
 function showBanner(message) {
   const banner = document.getElementById('bandeau');
-  banner.textContent = message;
+  setText(banner, message);
   banner.hidden = false;
 }
 
@@ -64,6 +64,9 @@ async function start() {
     storageAvailable = false;
     showBanner(STORAGE_WARNING);
   }
+
+  // Typographie française des textes écrits dans index.html (espaces insécables).
+  applyFrenchSpacing(document.body);
 
   // 2. Apparence.
   settings.theme = applyTheme(settings.theme);

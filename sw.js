@@ -223,16 +223,17 @@ self.addEventListener('fetch', (event) => {
 
   event.respondWith((async () => {
     const copy = await getCurrentCopy();
-    if (copy) {
-      const cached = await copy.cache.match(request, { ignoreSearch: true });
-      if (cached) return cached;
-      // Ouverture de l'application par une autre adresse du site : on sert la page principale.
-      if (request.mode === 'navigate') {
-        const page = await copy.cache.match('index.html');
-        if (page) return page;
-      }
+    const cached = copy ? await copy.cache.match(request, { ignoreSearch: true }) : null;
+    if (cached) return cached;
+    // Fichier absent de la copie (ex. : la page de tests) : on le demande au site.
+    try {
+      return await fetch(request);
+    } catch (error) {
+      // Sans internet, une adresse inconnue du site ouvre la page principale.
+      const page = request.mode === 'navigate' && copy ? await copy.cache.match('index.html') : null;
+      if (page) return page;
+      throw error;
     }
-    return fetch(request);
   })());
 });
 
