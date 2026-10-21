@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="fr" data-theme="omni">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'">
+  <title>Tests — Omni-Agenda</title>
+  <link rel="stylesheet" href="../css/themes.css">
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="tests.css">
+  <script type="module" src="tests.js"></script>
+</head>
+<body>
+  <main class="tests">
+    <h1>Tests automatiques d'Omni-Agenda</h1>
+    <p class="muted">Cette page vérifie les calculs de dates, les changements d'heure, la protection
+      contre l'injection de code et les règles des rendez-vous et des tâches.
+      Elle ne touche pas à ton agenda.</p>
+    <p id="resume" class="tests-summary" role="status">Tests en cours…</p>
+    <ol id="resultats" class="tests-list"></ol>
+  </main>
+</body>
+</html>

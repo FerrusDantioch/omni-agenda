@@ -1,0 +1,200 @@
+/* =============================================================
+   entries.css — Affichage des rendez-vous et des tâches
+   -------------------------------------------------------------
+   En-tête de l'agenda, liste par jour, lignes d'entrée,
+   fiche de détails.
+   ============================================================= */
+
+/* ---------- En-tête de l'écran agenda ---------- */
+.agenda-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.agenda-header h1 {
+  margin: 0;
+}
+
+.agenda-today {
+  margin: 0.25rem 0 0;
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.agenda-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+/* ---------- Liste par jour ---------- */
+.day-group {
+  margin-bottom: 1.5rem;
+}
+
+.day-heading {
+  margin: 0 0 0.5rem;
+  color: var(--color-text-muted);
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.day-heading.is-today {
+  color: var(--color-accent);
+}
+
+.entry-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ---------- Une ligne d'entrée ---------- */
+.entry {
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-accent);
+  border-radius: 0.75rem;
+  background: var(--color-paper);
+}
+
+.entry-task {
+  border-left-color: var(--color-border-strong);
+}
+
+.entry-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0.6rem 0.9rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.entry-main:hover {
+  background: var(--color-accent-soft);
+}
+
+.entry-main:focus-visible {
+  outline-offset: -3px;
+}
+
+.entry-time {
+  color: var(--color-accent);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.entry-kind,
+.entry-meta {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.entry-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.entry-meta {
+  overflow-wrap: anywhere;
+}
+
+.entry-priority {
+  color: var(--color-danger);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+/* Case « faite » d'une tâche : zone tactile de 48 px de large. */
+.entry-check {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  min-height: 44px;
+  border-right: 1px solid var(--color-border);
+  cursor: pointer;
+}
+
+.entry-check input {
+  width: 1.35rem;
+  height: 1.35rem;
+  margin: 0;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.entry.is-done .entry-title {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+}
+
+/* ---------- Fiche de détails ---------- */
+.entry-badge {
+  display: inline-block;
+  margin: 0 0 1rem;
+  padding: 0.2rem 0.75rem;
+  border-radius: 999px;
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.entry-badge-task {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+
+.details-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0 0 1.5rem;
+}
+
+.details-row {
+  display: grid;
+  grid-template-columns: minmax(7rem, 30%) 1fr;
+  gap: 0.25rem 1rem;
+}
+
+.details-row dt {
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.details-row dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Sur écran étroit, l'intitulé passe au-dessus de la valeur. */
+@media (max-width: 30rem) {
+  .details-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.rich-text {
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}

@@ -99,6 +99,25 @@ export function setSetting(key, value) {
 }
 
 // ---------------------------------------------------------------
+// Entrées (rendez-vous et tâches)
+// ---------------------------------------------------------------
+
+/** Lit toutes les entrées enregistrées. */
+export async function getAllEntryRecords() {
+  return (await runTransaction(STORE_ENTRIES, 'readonly', (store) => store.getAll())) ?? [];
+}
+
+/** Enregistre une entrée (la crée ou la remplace si elle existe déjà). */
+export function putEntryRecord(record) {
+  return runTransaction(STORE_ENTRIES, 'readwrite', (store) => store.put(record));
+}
+
+/** Supprime une entrée par son identifiant. */
+export function deleteEntryRecord(id) {
+  return runTransaction(STORE_ENTRIES, 'readwrite', (store) => store.delete(id));
+}
+
+// ---------------------------------------------------------------
 // Copie rapide des réglages d'apparence (pour js/boot.js)
 // ---------------------------------------------------------------
 

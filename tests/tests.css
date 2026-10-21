@@ -1,0 +1,38 @@
+/* Mise en page de la page de tests. */
+.tests {
+  max-width: 50rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
+.tests-summary {
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--color-border-strong);
+  border-radius: 0.75rem;
+  font-weight: 700;
+}
+
+.tests-summary.is-ok {
+  border-color: var(--color-accent);
+}
+
+.tests-summary.is-failed {
+  border-color: var(--color-danger);
+}
+
+.tests-list {
+  padding-left: 1.5rem;
+}
+
+.tests-list li {
+  margin-bottom: 0.35rem;
+}
+
+.test-ok::marker {
+  color: var(--color-accent);
+}
+
+.test-failed {
+  color: var(--color-danger);
+  font-weight: 600;
+}

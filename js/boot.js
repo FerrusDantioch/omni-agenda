@@ -22,7 +22,7 @@
     if (typeof saved.textScale === 'number' && saved.textScale >= 80 && saved.textScale <= 200) {
       document.documentElement.style.fontSize = saved.textScale + '%';
     }
-  } catch (erreur) {
+  } catch {
     // Rien de grave : on garde simplement le thème par défaut.
   }
 })();

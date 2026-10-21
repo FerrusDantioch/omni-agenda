@@ -1,0 +1,249 @@
+// =============================================================
+// tests.js — Tests automatiques (s'exécutent dans le navigateur)
+// -------------------------------------------------------------
+// Chaque test vérifie un comportement précis. Un test réussi
+// affiche ✓, un test échoué affiche ✗ avec l'explication.
+// =============================================================
+
+import {
+  addDays, isValidISODate, isValidTime, minutesToTime, timeToMinutes,
+  wallTimeExists, zonedTimeToInstant, instantToZoned,
+} from '../js/dates.js';
+import { htmlToText, sanitizeHtml, textToHtml } from '../js/sanitize.js';
+import { buildEntry, createId, getEventSchedule, normalizeEntry } from '../js/entries.js';
+
+const results = [];
+
+function test(name, fn) {
+  try {
+    fn();
+    results.push({ name, ok: true });
+  } catch (error) {
+    results.push({ name, ok: false, message: error.message });
+  }
+}
+
+function equal(actual, expected, label = '') {
+  const a = JSON.stringify(actual);
+  const e = JSON.stringify(expected);
+  if (a !== e) throw new Error(`${label ? `${label} : ` : ''}attendu ${e}, obtenu ${a}`);
+}
+
+function isTrue(value, label) {
+  if (!value) throw new Error(label);
+}
+
+/** Instant attendu, écrit en temps universel. */
+const utc = (y, mo, d, h, mi) => new Date(Date.UTC(y, mo - 1, d, h, mi)).toISOString();
+
+// ---------------------------------------------------------------
+// Dates simples
+// ---------------------------------------------------------------
+test('Une vraie date est acceptée, le 30 février est refusé', () => {
+  equal(isValidISODate('2026-10-21'), true);
+  equal(isValidISODate('2026-02-30'), false);
+  equal(isValidISODate('2028-02-29'), true, 'année bissextile');
+  equal(isValidISODate('2027-02-29'), false, 'année non bissextile');
+  equal(isValidISODate('21/10/2026'), false, 'mauvais format');
+});
+
+test('Les heures valides vont de 00:00 à 23:59', () => {
+  equal(isValidTime('00:00'), true);
+  equal(isValidTime('23:59'), true);
+  equal(isValidTime('24:00'), false);
+  equal(isValidTime('9:00'), false);
+});
+
+test("Ajouter des jours fonctionne, y compris autour d'un changement d'heure", () => {
+  equal(addDays('2026-03-28', 1), '2026-03-29');
+  equal(addDays('2026-03-29', 1), '2026-03-30');
+  equal(addDays('2026-10-25', 1), '2026-10-26');
+  equal(addDays('2026-12-31', 1), '2027-01-01');
+  equal(addDays('2028-03-01', -1), '2028-02-29');
+});
+
+test('Conversion heures ↔ minutes (et passage de minuit)', () => {
+  equal(timeToMinutes('14:30'), 870);
+  equal(minutesToTime(870), '14:30');
+  equal(minutesToTime(24 * 60 + 30), '00:30');
+  equal(minutesToTime(-30), '23:30');
+});
+
+// ---------------------------------------------------------------
+// Fuseaux horaires et changements d'heure
+// ---------------------------------------------------------------
+test('Paris : 14:00 en hiver = 13:00 en temps universel', () => {
+  equal(zonedTimeToInstant('2026-03-28', '14:00', 'Europe/Paris').toISOString(), utc(2026, 3, 28, 13, 0));
+});
+
+test("Paris : 14:00 le jour du passage à l'heure d'été = 12:00 universel", () => {
+  equal(zonedTimeToInstant('2026-03-29', '14:00', 'Europe/Paris').toISOString(), utc(2026, 3, 29, 12, 0));
+});
+
+test("Paris : 02:30 n'existe pas le 29 mars 2026 (on avance à 03:30)", () => {
+  equal(wallTimeExists('2026-03-29', '02:30', 'Europe/Paris'), false);
+  const instant = zonedTimeToInstant('2026-03-29', '02:30', 'Europe/Paris');
+  equal(instantToZoned(instant, 'Europe/Paris'), { date: '2026-03-29', time: '03:30' });
+});
+
+test("Paris : 02:30 existe deux fois le 25 octobre 2026 (on prend la première)", () => {
+  equal(wallTimeExists('2026-10-25', '02:30', 'Europe/Paris'), true);
+  equal(zonedTimeToInstant('2026-10-25', '02:30', 'Europe/Paris').toISOString(), utc(2026, 10, 25, 0, 30));
+});
+
+test("Paris : 14:00 après le passage à l'heure d'hiver = 13:00 universel", () => {
+  equal(zonedTimeToInstant('2026-10-25', '14:00', 'Europe/Paris').toISOString(), utc(2026, 10, 25, 13, 0));
+});
+
+test('New York : heure d’été et heure d’hiver', () => {
+  equal(zonedTimeToInstant('2026-07-01', '09:00', 'America/New_York').toISOString(), utc(2026, 7, 1, 13, 0));
+  equal(zonedTimeToInstant('2026-12-01', '09:00', 'America/New_York').toISOString(), utc(2026, 12, 1, 14, 0));
+});
+
+test('Inde : décalage d’une demi-heure, sans changement d’heure', () => {
+  equal(zonedTimeToInstant('2026-01-15', '10:00', 'Asia/Kolkata').toISOString(), utc(2026, 1, 15, 4, 30));
+});
+
+test('Un rendez-vous à 14:00 reste à 14:00 après le changement d’heure (même fuseau)', () => {
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const event = normalizeEntry({
+    id: 'test-1', type: 'event', title: 'Dentiste', date: '2026-11-10', startTime: '14:00', endTime: '15:00', timeZone: zone,
+  });
+  const schedule = getEventSchedule(event);
+  equal([schedule.startTime, schedule.endTime, schedule.shifted], ['14:00', '15:00', false]);
+});
+
+test('Un rendez-vous créé à New York est converti au bon instant', () => {
+  const event = normalizeEntry({
+    id: 'test-2', type: 'event', title: 'Appel', date: '2026-07-01', startTime: '09:00', endTime: '10:00', timeZone: 'America/New_York',
+  });
+  const schedule = getEventSchedule(event);
+  equal(schedule.start.toISOString(), utc(2026, 7, 1, 13, 0));
+  equal(schedule.end.toISOString(), utc(2026, 7, 1, 14, 0));
+});
+
+test('Un rendez-vous 22:00 → 01:00 se termine le lendemain', () => {
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const event = normalizeEntry({
+    id: 'test-3', type: 'event', title: 'Soirée', date: '2026-12-31', startTime: '22:00', endTime: '01:00', timeZone: zone,
+  });
+  const schedule = getEventSchedule(event);
+  equal([schedule.startDate, schedule.endDate], ['2026-12-31', '2027-01-01']);
+  equal(schedule.end - schedule.start, 3 * 3600000, 'durée de 3 heures');
+});
+
+// ---------------------------------------------------------------
+// Protection contre l'injection de code
+// ---------------------------------------------------------------
+test('Un <script> est supprimé avec son contenu', () => {
+  equal(sanitizeHtml('<script>alert(1)</script>Bonjour'), 'Bonjour');
+});
+
+test('Une image piégée (onerror) est supprimée', () => {
+  equal(sanitizeHtml('<img src="x" onerror="alert(1)">Texte'), 'Texte');
+});
+
+test('Le gras est gardé, mais sans ses attributs', () => {
+  equal(sanitizeHtml('<b onclick="alert(1)" style="color:red">Gras</b>'), '<strong>Gras</strong>');
+});
+
+test('Le souligné est gardé', () => {
+  equal(sanitizeHtml('<u>Important</u>'), '<u>Important</u>');
+});
+
+test('Le surlignage garde uniquement une couleur autorisée', () => {
+  equal(sanitizeHtml('<mark class="hl-vert autre">x</mark>'), '<mark class="hl-vert">x</mark>');
+  equal(sanitizeHtml('<mark style="background:red">x</mark>'), '<mark class="hl-jaune">x</mark>');
+});
+
+test('Un lien « javascript: » perd sa balise, le texte reste', () => {
+  equal(sanitizeHtml('<a href="javascript:alert(1)">lien</a>'), 'lien');
+});
+
+test('Les blocs <div> deviennent des retours à la ligne', () => {
+  equal(sanitizeHtml('a<div>b</div><div><br></div><div>c</div>'), 'a<br>b<br><br>c');
+});
+
+test('SVG, style, iframe et noscript sont supprimés', () => {
+  equal(sanitizeHtml('<svg><script>alert(1)</script></svg><style>*{}</style><iframe src="x"></iframe><noscript>n</noscript>ok'), 'ok');
+});
+
+test('Un texte qui ressemble à du code reste du texte', () => {
+  equal(sanitizeHtml('&lt;script&gt;alert(1)&lt;/script&gt;'), '&lt;script&gt;alert(1)&lt;/script&gt;');
+  equal(textToHtml('a <b>\nc'), 'a &lt;b&gt;<br>c');
+  equal(htmlToText('a<br>b &amp; c'), 'a\nb & c');
+});
+
+test('Les mises en forme imbriquées sont conservées', () => {
+  equal(sanitizeHtml('<strong><u>x</u></strong>'), '<strong><u>x</u></strong>');
+});
+
+// ---------------------------------------------------------------
+// Règles des rendez-vous et des tâches
+// ---------------------------------------------------------------
+test('Les identifiants sont uniques et au bon format', () => {
+  const a = createId();
+  const b = createId();
+  isTrue(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(a), `format incorrect : ${a}`);
+  isTrue(a !== b, 'deux identifiants identiques');
+});
+
+test('Un titre vide est refusé', () => {
+  const { errors } = buildEntry({ type: 'task', title: '   ' });
+  equal(errors.title, 'Écris un titre.');
+});
+
+test('Une heure de fin égale au début est refusée', () => {
+  const { errors } = buildEntry({ type: 'event', title: 'RDV', date: '2026-11-02', startTime: '10:00', endTime: '10:00', reminderMinutes: '' });
+  isTrue(errors.endTime, "pas d'erreur sur l'heure de fin");
+});
+
+test('Un rendez-vous valide est construit correctement', () => {
+  const { entry, errors } = buildEntry({
+    type: 'event', title: '  Médecin  ', date: '2026-11-02', startTime: '10:00', endTime: '10:30',
+    location: 'Cabinet', reminderMinutes: '15', description: '<b>Carte vitale</b><script>x</script>',
+  });
+  equal(errors, {});
+  equal([entry.title, entry.location, entry.reminderMinutes, entry.description], ['Médecin', 'Cabinet', 15, '<strong>Carte vitale</strong>']);
+  isTrue(entry.timeZone, 'fuseau manquant');
+});
+
+test('Une tâche sans échéance est acceptée', () => {
+  const { entry, errors } = buildEntry({ type: 'task', title: 'Lire', dueDate: '', priority: 'high', done: false });
+  equal(errors, {});
+  equal([entry.dueDate, entry.priority, entry.done, entry.doneAt], [null, 'high', false, null]);
+});
+
+test('Un titre trop long est raccourci à 200 caractères', () => {
+  const { entry } = buildEntry({ type: 'task', title: 'x'.repeat(500) });
+  equal(entry.title.length, 200);
+});
+
+test('Une entrée abîmée ou piégée est rejetée ou nettoyée', () => {
+  equal(normalizeEntry({ id: 'a', type: 'inconnu', title: 'x' }), null, 'type inconnu');
+  equal(normalizeEntry({ id: 'a', type: 'toString', title: 'x' }), null, 'nom spécial');
+  equal(normalizeEntry({ type: 'task', title: 'x' }), null, 'sans identifiant');
+  equal(normalizeEntry({ id: 'a', type: 'event', title: 'x', date: '2026-13-01', startTime: '10:00', endTime: '11:00' }), null, 'date impossible');
+  const task = normalizeEntry({ id: 'a', type: 'task', title: 'x', priority: 'toString', description: '<img src=x onerror=alert(1)>ok' });
+  equal([task.priority, task.description], ['normal', 'ok']);
+});
+
+// ---------------------------------------------------------------
+// Affichage des résultats
+// ---------------------------------------------------------------
+const list = document.getElementById('resultats');
+for (const result of results) {
+  const item = document.createElement('li');
+  item.className = result.ok ? 'test-ok' : 'test-failed';
+  item.textContent = result.ok ? `✓ ${result.name}` : `✗ ${result.name} — ${result.message}`;
+  list.append(item);
+}
+const failed = results.filter((result) => !result.ok).length;
+const summary = document.getElementById('resume');
+summary.textContent = failed === 0
+  ? `✓ Les ${results.length} tests sont réussis.`
+  : `✗ ${failed} test(s) échoué(s) sur ${results.length}.`;
+summary.classList.add(failed === 0 ? 'is-ok' : 'is-failed');
+
+// Pour les tests automatiques lancés depuis un autre programme.
+window.testResults = results;

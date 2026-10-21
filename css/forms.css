@@ -1,0 +1,209 @@
+/* =============================================================
+   forms.css — Champs de saisie et fenêtres
+   -------------------------------------------------------------
+   Toutes les zones de saisie font au moins 44 px de haut.
+   ============================================================= */
+
+/* ---------- Fenêtres (<dialog>) ---------- */
+.panel {
+  width: min(40rem, calc(100% - 2rem));
+  max-width: none;
+  max-height: calc(100dvh - 2rem);
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow);
+}
+
+.panel[open] {
+  display: flex;
+  flex-direction: column;
+  animation: panel-appear 0.2s ease-out;
+}
+
+@keyframes panel-appear {
+  from { opacity: 0; transform: translateY(0.5rem); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Voile derrière la fenêtre (couleur fixe : il ne reçoit pas les variables de thème partout). */
+.panel::backdrop {
+  background: rgba(8, 6, 14, 0.65);
+}
+
+.panel-small {
+  width: min(28rem, calc(100% - 2rem));
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.5rem 0.5rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.panel-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  overflow-wrap: anywhere;
+}
+
+.panel-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Le corps défile ; l'en-tête et le pied restent visibles. */
+.panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1.25rem;
+}
+
+.panel-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid var(--color-border);
+}
+
+/* Le bouton « Supprimer » se tient à gauche, loin de « Modifier ». */
+.panel-footer .btn-danger {
+  margin-right: auto;
+}
+
+.panel-small .panel-footer {
+  border-top: 0;
+  padding-top: 0;
+}
+
+/* Sur téléphone, la fenêtre d'une entrée occupe tout l'écran. */
+@media (max-width: 40rem) {
+  .panel:not(.panel-small) {
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+}
+
+/* ---------- Champs ---------- */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+  margin: 0 0 1rem;
+  padding: 0;
+  border: 0;
+}
+
+.field > label,
+.field > legend {
+  font-weight: 600;
+}
+
+.field-required {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+
+.field-hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+/* La date en toutes lettres sous un champ de date. */
+.date-readout {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.field-error {
+  margin: 0;
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+input[type="text"],
+input[type="date"],
+input[type="time"],
+select,
+textarea {
+  width: 100%;
+  min-height: max(44px, 2.75rem);
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 0.6rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+}
+
+textarea {
+  min-height: 7rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+/* Champ à corriger : bordure plus épaisse, dans la couleur d'alerte. */
+[aria-invalid="true"] {
+  border: 2px solid var(--color-danger);
+}
+
+/* Deux champs côte à côte (début / fin), l'un sous l'autre si l'écran est étroit. */
+.field-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+  gap: 0 1rem;
+}
+
+.form-section {
+  margin: 0;
+}
+
+/* Case à cocher avec son texte, grande zone cliquable. */
+.checkbox-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 44px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.checkbox-row input {
+  width: 1.35rem;
+  height: 1.35rem;
+  margin: 0;
+  accent-color: var(--color-accent);
+}
+
+.form-error,
+.notice-error {
+  margin: 0.5rem 0 0;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--color-danger);
+  border-radius: 0.75rem;
+  background: var(--color-surface-2);
+  font-weight: 600;
+}
+
+/* Bouton « Retirer l'échéance », collé sous le champ de date. */
+.form-section > .btn-small {
+  margin: -0.5rem 0 1rem;
+}

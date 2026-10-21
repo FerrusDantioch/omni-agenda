@@ -118,6 +118,35 @@
   border-color: transparent;
 }
 
+/* Bouton d'action destructrice (supprimer, abandonner). */
+.btn-danger {
+  background: transparent;
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.btn-danger:hover {
+  border-color: var(--color-danger);
+  background: var(--color-surface-2);
+}
+
+/* Bouton carré qui ne contient qu'une icône (ex. : Fermer). */
+.btn-icon {
+  width: max(44px, 2.75rem);
+  padding: 0;
+}
+
+.btn-small {
+  align-self: flex-start;
+  padding-inline: 0.75rem;
+  font-size: 0.95rem;
+}
+
+.btn:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
 .icon {
   width: 1.25rem;
   height: 1.25rem;
@@ -309,10 +338,25 @@ legend {
   filter: var(--logo-glow);
 }
 
-.welcome-date {
-  color: var(--color-accent);
-  font-size: 1.15rem;
+/* ---------- Petit message de confirmation, en bas de l'écran ---------- */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: max(1.25rem, env(safe-area-inset-bottom));
+  z-index: 50;
+  max-width: calc(100% - 2rem);
+  padding: 0.75rem 1.25rem;
+  border: 1px solid var(--color-accent);
+  border-radius: 0.75rem;
+  background: var(--color-surface-2);
+  box-shadow: var(--shadow);
+  color: var(--color-text);
   font-weight: 600;
+  transform: translateX(-50%);
+}
+
+.toast:empty {
+  display: none;
 }
 
 /* ---------- Page « À propos » ---------- */

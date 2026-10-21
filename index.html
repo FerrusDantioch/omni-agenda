@@ -18,6 +18,8 @@
   <link rel="stylesheet" href="css/themes.css">
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/forms.css">
+  <link rel="stylesheet" href="css/entries.css">
 
   <!-- Applique le thème mémorisé AVANT l'affichage (évite un flash de couleur). -->
   <script src="js/boot.js"></script>
@@ -51,15 +53,35 @@
   <main id="contenu" class="app-main" tabindex="-1">
 
     <!-- ============ Écran : agenda (accueil) ============ -->
-    <section class="screen" data-screen="agenda" data-title="Omni-Agenda" aria-labelledby="titre-accueil">
-      <div class="welcome">
+    <section class="screen" data-screen="agenda" data-title="Omni-Agenda" aria-labelledby="titre-agenda">
+      <div class="agenda-header">
+        <div>
+          <h1 id="titre-agenda">Mon agenda</h1>
+          <p class="agenda-today" id="date-du-jour"></p>
+        </div>
+        <div class="agenda-actions">
+          <button type="button" class="btn btn-primary" id="bouton-nouveau-rdv">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>
+            <span>Rendez-vous</span>
+          </button>
+          <button type="button" class="btn" id="bouton-nouvelle-tache">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>
+            <span>Tâche</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Accueil, affiché quand l'agenda est vide. -->
+      <div class="welcome" id="accueil-vide" hidden>
         <img class="welcome-logo" src="assets/icons/logo.svg" alt="" width="96" height="96">
-        <h1 id="titre-accueil">Bienvenue dans Omni-Agenda</h1>
-        <p class="welcome-date" id="date-du-jour"></p>
+        <h2>Bienvenue dans Omni-Agenda</h2>
         <p>Ton agenda privé : tout reste sur cet appareil.<br>
            Pas de compte, pas de publicité, pas besoin d'internet.</p>
-        <p class="muted small">Les pages de l'agenda arriveront aux prochaines étapes.</p>
+        <p class="muted">Ton agenda est vide pour l'instant. Ajoute un rendez-vous ou une tâche avec les boutons ci-dessus.</p>
       </div>
+
+      <!-- Liste des entrées, classées par jour. -->
+      <div id="liste-entrees" class="day-groups"></div>
     </section>
 
     <!-- ============ Écran : réglages ============ -->
@@ -120,6 +142,12 @@
       </div>
     </section>
   </main>
+
+  <!-- Fenêtre d'une entrée (fiche de détails ou formulaire), remplie par js/ui/entry-panel.js. -->
+  <dialog id="fenetre-entree" class="panel" aria-labelledby="fenetre-entree-titre"></dialog>
+
+  <!-- Petit message de confirmation (« Rendez-vous ajouté »), lu par les lecteurs d'écran. -->
+  <div id="message-flottant" class="toast" role="status" aria-live="polite"></div>
 
   <noscript>
     <p class="notice">Omni-Agenda a besoin de JavaScript pour fonctionner. Active-le dans les réglages de ton navigateur.</p>
