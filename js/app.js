@@ -4,10 +4,10 @@
 // Ce fichier assemble toutes les pièces :
 //   1. il lit les réglages mémorisés ;
 //   2. il applique le thème, la police et la taille du texte ;
-//   3. il prépare les écrans et la fenêtre des entrées ;
+//   3. il prépare les écrans, la fenêtre des entrées et le mode hors ligne ;
 //   4. si un mot de passe est actif, il attend le bon mot de passe ;
 //   5. il charge les rendez-vous et les tâches ;
-//   6. il affiche l'agenda et démarre la navigation entre écrans.
+//   6. il affiche l'agenda, démarre la navigation entre écrans et les rappels.
 // =============================================================
 
 import { getSetting, setSetting } from './storage.js';
@@ -20,7 +20,11 @@ import { initAbout } from './ui/about.js';
 import { initBackupSettings } from './ui/backup-settings.js';
 import { initPasswordSettings } from './ui/password-settings.js';
 import { setLocked, showLockScreen } from './ui/lock-screen.js';
+import { initAppSettings } from './ui/app-settings.js';
 import { loadProtection } from './security.js';
+import { startOffline } from './offline.js';
+import { startReminders } from './notifications.js';
+import { el } from './ui/dom.js';
 import { initEntryPanel, openEntryDetails, openNewEntry } from './ui/entry-panel.js';
 import { showToast } from './ui/toast.js';
 import { DEFAULT_VIEW, getAgendaDate, initAgendaView } from './views/agenda-view.js';
@@ -29,6 +33,16 @@ import { DEFAULT_VIEW, getAgendaDate, initAgendaView } from './views/agenda-view
 function showBanner(message) {
   const banner = document.getElementById('bandeau');
   banner.textContent = message;
+  banner.hidden = false;
+}
+
+/** Une nouvelle version a été téléchargée : on le dit, sans obliger à recharger. */
+function showUpdateBanner() {
+  const banner = document.getElementById('bandeau');
+  banner.replaceChildren(
+    "Une nouvelle version d'Omni-Agenda est prête. ",
+    el('button', { type: 'button', class: 'btn btn-small', onclick: () => window.location.reload() }, 'Recharger maintenant'),
+  );
   banner.hidden = false;
 }
 
@@ -62,12 +76,16 @@ async function start() {
     showBanner(STORAGE_WARNING);
   });
   initBackupSettings();
+  initAppSettings();
   initAbout();
   initEntryPanel();
   document.getElementById('bouton-nouveau-rdv').addEventListener('click', () =>
     openNewEntry('event', { defaultDate: getAgendaDate() }));
   document.getElementById('bouton-nouvelle-tache').addEventListener('click', () =>
     openNewEntry('task', { defaultDate: getAgendaDate() }));
+
+  // Mode hors ligne : il ne touche à aucune donnée, il peut démarrer tout de suite.
+  startOffline({ onUpdateReady: showUpdateBanner });
 
   // 4. Mot de passe : s'il est actif, l'agenda reste caché jusqu'au bon mot de passe.
   let wasLocked = false;
@@ -112,6 +130,7 @@ async function start() {
   });
 
   startRouter();
+  startReminders();
   // Après le déverrouillage, le curseur clavier va sur le contenu de l'application.
   if (wasLocked) document.getElementById('contenu').focus({ preventScroll: true });
 }

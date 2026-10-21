@@ -19,6 +19,7 @@ import {
   createProtection, decryptJson, encryptJson, fromBase64, isValidProtection, openProtection, toBase64,
 } from '../js/crypto.js';
 import { checkNewPassword } from '../js/security.js';
+import { getDueReminders, reminderText } from '../js/reminders.js';
 import { buildAgendaIndex } from '../js/views/agenda-data.js';
 import { dayView } from '../js/views/day-view.js';
 import { weekView } from '../js/views/week-view.js';
@@ -426,6 +427,50 @@ test('Règles du nouveau mot de passe', () => {
   equal(checkNewPassword('mon chat dort', 'mon chat dors')?.field, 'confirmation', 'confirmation différente');
   equal(checkNewPassword('mon chat dort', 'mon chat dort'), null, 'valide');
   equal(checkNewPassword('🐱🐱🐱🐱🐱🐱🐱🐱', '🐱🐱🐱🐱🐱🐱🐱🐱'), null, '8 émojis = 8 caractères');
+});
+
+// ---------------------------------------------------------------
+// Rappels
+// ---------------------------------------------------------------
+// Rendez-vous le 10 mai 2030 à 14:00, dans le fuseau de l'appareil.
+const reminderZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+const reminderEvent = (minutes) => normalizeEntry({
+  id: 'rappel-1', type: 'event', title: 'Dentiste', date: '2030-05-10', startTime: '14:00', endTime: '15:00',
+  timeZone: reminderZone, location: 'Cabinet', reminderMinutes: minutes,
+});
+const reminderStart = () => zonedTimeToInstant('2030-05-10', '14:00', reminderZone).getTime();
+/** L'instant situé `minutes` minutes avant (négatif) ou après (positif) le début du rendez-vous. */
+const aroundStart = (minutes) => new Date(reminderStart() + minutes * 60000);
+
+test('Un rappel s’affiche à partir de son heure, jusqu’au début du rendez-vous', () => {
+  const event = reminderEvent(15);
+  equal(getDueReminders([event], aroundStart(-16)).length, 0, '16 minutes avant : trop tôt');
+  equal(getDueReminders([event], aroundStart(-15)).length, 1, '15 minutes avant : affiché');
+  equal(getDueReminders([event], aroundStart(-1)).length, 1, '1 minute avant : encore affiché');
+  equal(getDueReminders([event], aroundStart(0)).length, 0, 'au début du rendez-vous : plus de rappel');
+  equal(getDueReminders([reminderEvent(0)], aroundStart(9)).length, 1, '« à l’heure » : encore 9 minutes après');
+  equal(getDueReminders([reminderEvent(0)], aroundStart(10)).length, 0, '« à l’heure » : plus après 10 minutes');
+  equal(getDueReminders([reminderEvent(null)], aroundStart(-5)).length, 0, 'sans rappel');
+  equal(getDueReminders([sampleTask('t', '2026-10-01')], aroundStart(-5)).length, 0, 'une tâche n’a pas de rappel');
+});
+
+test('Un rappel est identifié par son heure : déplacer le rendez-vous en crée un nouveau', () => {
+  const [before] = getDueReminders([reminderEvent(15)], aroundStart(-10));
+  const moved = { ...reminderEvent(15), startTime: '14:05', endTime: '15:05' };
+  const [after] = getDueReminders([moved], aroundStart(-5));
+  isTrue(before && after && before.key !== after.key, 'clés différentes');
+});
+
+test('Texte du rappel : normal, et discret quand un mot de passe est actif', () => {
+  const [due] = getDueReminders([reminderEvent(15)], aroundStart(-15));
+  equal(reminderText(due, aroundStart(-15)), { title: 'Dentiste', body: 'Dans 15 minutes, à 14:00 · Cabinet' });
+  equal(reminderText(due, aroundStart(-1)).body, 'Dans 1 minute, à 14:00 · Cabinet');
+  equal(reminderText(due, aroundStart(-15), { discreet: true }),
+    { title: 'Rappel de rendez-vous', body: 'Dans 15 minutes, à 14:00. Ouvre Omni-Agenda pour le voir.' });
+  const [onTime] = getDueReminders([reminderEvent(0)], aroundStart(2));
+  equal(reminderText(onTime, aroundStart(2)).body, 'Commence maintenant (14:00) · Cabinet');
+  const [dayBefore] = getDueReminders([reminderEvent(1440)], aroundStart(-1440));
+  equal(reminderText(dayBefore, aroundStart(-1440)).body, 'Vendredi 10 mai à 14:00 · Cabinet');
 });
 
 // ---------------------------------------------------------------

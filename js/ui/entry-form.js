@@ -13,6 +13,7 @@ import {
   formatISODateLong, isValidISODate, isValidTime, minutesToTime, timeToMinutes, todayISO,
 } from '../dates.js';
 import { createRichEditor } from './editor.js';
+import { notificationPermission } from '../notifications.js';
 
 let idCounter = 0;
 
@@ -68,6 +69,25 @@ function dateReadout(input, emptyText = '') {
   input.addEventListener('change', update);
   update();
   return readout;
+}
+
+/**
+ * Sous le choix du rappel : si les rappels ne sont pas encore autorisés,
+ * on explique comment les recevoir.
+ */
+function reminderHint(select) {
+  const hint = el('p', { class: 'field-hint' });
+  const update = () => {
+    const permission = notificationPermission();
+    if (select.value === '' || permission === 'granted') hint.textContent = '';
+    else if (permission === 'unsupported') hint.textContent = 'Ce navigateur ne peut pas afficher de rappels.';
+    else if (permission === 'denied') hint.textContent = 'Les rappels sont bloqués par le navigateur : voir Réglages → Rappels.';
+    else hint.textContent = 'Pour recevoir ce rappel, autorise les rappels dans Réglages → Rappels.';
+    hint.hidden = hint.textContent === '';
+  };
+  select.addEventListener('change', update);
+  update();
+  return hint;
 }
 
 /** Groupe de boutons ronds présentés en cartes (type, priorité). */
@@ -142,7 +162,7 @@ export function renderEntryForm({
     ),
     overnightHint,
     makeField('location', 'Lieu', locationInput),
-    makeField('reminderMinutes', 'Rappel', reminderSelect),
+    makeField('reminderMinutes', 'Rappel', reminderSelect, { hint: reminderHint(reminderSelect) }),
   );
 
   const taskSection = el('div', { class: 'form-section' },

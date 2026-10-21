@@ -14,6 +14,10 @@
   <meta name="theme-color" content="#1b1726">
   <title>Omni-Agenda</title>
   <link rel="icon" href="assets/icons/logo.svg" type="image/svg+xml">
+  <!-- Fiche d'identité de l'application (nom, icônes) : permet de l'installer. -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-title" content="Omni-Agenda">
 
   <link rel="stylesheet" href="css/themes.css">
   <link rel="stylesheet" href="css/fonts.css">
@@ -160,6 +164,16 @@
         </fieldset>
       </div>
 
+      <!-- Rappels (notifications), gérés par js/ui/app-settings.js. -->
+      <div class="card">
+        <h2>Rappels</h2>
+        <p>Un rappel s'affiche sous forme de notification discrète, sans son, à l'heure choisie pour le rendez-vous.</p>
+        <p class="muted small">Il s'affiche si Omni-Agenda est ouverte, ou encore active en arrière-plan :
+          sans serveur, une application web ne peut pas se réveiller toute seule.</p>
+        <div id="reglages-rappels"></div>
+        <div id="message-rappels" role="status" aria-live="polite"></div>
+      </div>
+
       <!-- Export et import de l'agenda, gérés par js/ui/backup-settings.js. -->
       <div class="card">
         <h2>Sauvegarde</h2>
@@ -187,6 +201,13 @@
         <h2 id="titre-mot-de-passe" tabindex="-1">Mot de passe</h2>
         <div id="reglages-mot-de-passe"></div>
         <div id="message-mot-de-passe" role="status" aria-live="polite"></div>
+      </div>
+
+      <!-- Installation, fonctionnement sans internet et stockage (js/ui/app-settings.js). -->
+      <div class="card">
+        <h2>Application</h2>
+        <div id="reglages-application"></div>
+        <div id="message-application" role="status" aria-live="polite"></div>
       </div>
 
       <div class="card">

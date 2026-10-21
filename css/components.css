@@ -338,6 +338,40 @@ legend {
   margin-top: 0.75rem;
 }
 
+/* ---------- Sous-parties d'une carte (ex. : « Installation », « Stockage ») ---------- */
+.card h3 {
+  margin: 1.5rem 0 0.5rem;
+  font-size: 1.05rem;
+}
+
+.card h3:first-child {
+  margin-top: 0.25rem;
+}
+
+/* Ligne d'état avec une coche : « ✓ Les rappels sont autorisés. » */
+.status-line {
+  margin: 0.5rem 0;
+}
+
+.status-ok {
+  color: var(--color-accent);
+  font-weight: 700;
+}
+
+.install-steps {
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+}
+
+.install-steps li + li {
+  margin-top: 0.4rem;
+}
+
+/* Bouton dans le bandeau (« Recharger maintenant »). */
+.banner .btn {
+  margin: 0.25rem 0 0.25rem 0.5rem;
+}
+
 /* ---------- Écran d'accueil ---------- */
 .welcome {
   max-width: 36rem;

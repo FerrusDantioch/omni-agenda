@@ -182,6 +182,41 @@ export function eraseAgenda() {
 }
 
 // ---------------------------------------------------------------
+// Protection contre l'effacement automatique
+// ---------------------------------------------------------------
+// Quand l'appareil manque de place, le navigateur peut effacer les
+// données des sites. On peut lui demander de ne JAMAIS effacer
+// celles d'Omni-Agenda (« stockage persistant »).
+
+/** Vrai si les données sont protégées contre l'effacement automatique. */
+export async function isStoragePersisted() {
+  try {
+    return Boolean(await navigator.storage?.persisted?.());
+  } catch {
+    return false;
+  }
+}
+
+/** Demande la protection. Renvoie vrai si le navigateur l'accorde. */
+export async function requestPersistentStorage() {
+  try {
+    return Boolean(await navigator.storage?.persist?.());
+  } catch {
+    return false;
+  }
+}
+
+/** Espace utilisé par Omni-Agenda sur l'appareil (en octets), ou null si inconnu. */
+export async function getStorageUsage() {
+  try {
+    const estimate = await navigator.storage?.estimate?.();
+    return typeof estimate?.usage === 'number' ? estimate.usage : null;
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------
 // Copie rapide des réglages d'apparence (pour js/boot.js)
 // ---------------------------------------------------------------
 
