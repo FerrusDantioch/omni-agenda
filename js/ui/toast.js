@@ -6,6 +6,8 @@
 // Aucun son. Les lecteurs d'écran le lisent à voix haute.
 // =============================================================
 
+import { setText } from './dom.js';
+
 const DISPLAY_DURATION_MS = 4000;
 let hideTimer = null;
 
@@ -16,7 +18,7 @@ export function showToast(message) {
   toast.textContent = '';
   clearTimeout(hideTimer);
   requestAnimationFrame(() => {
-    toast.textContent = message;
+    setText(toast, message);
     hideTimer = setTimeout(() => {
       toast.textContent = '';
     }, DISPLAY_DURATION_MS);

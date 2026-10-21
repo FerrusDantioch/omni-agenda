@@ -9,7 +9,7 @@
 // fenêtre au lieu de quitter l'écran.
 // =============================================================
 
-import { el } from './dom.js';
+import { el, setText } from './dom.js';
 
 // Fenêtres ouvertes → jeton qui identifie leur étape d'historique.
 const openModals = new Map();
@@ -289,7 +289,7 @@ export function openFormDialog({ title, message, content, submitLabel, danger = 
     }
     control.stayOpen();
     const { message: text, input = null } = typeof problem === 'string' ? { message: problem } : problem;
-    errorZone.textContent = text;
+    setText(errorZone, text);
     errorZone.hidden = false;
     if (input) {
       input.setAttribute('aria-invalid', 'true');

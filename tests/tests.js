@@ -20,6 +20,7 @@ import {
 } from '../js/crypto.js';
 import { checkNewPassword } from '../js/security.js';
 import { getDueReminders, reminderText } from '../js/reminders.js';
+import { frenchSpacing } from '../js/ui/dom.js';
 import { buildAgendaIndex } from '../js/views/agenda-data.js';
 import { dayView } from '../js/views/day-view.js';
 import { weekView } from '../js/views/week-view.js';
@@ -471,6 +472,17 @@ test('Texte du rappel : normal, et discret quand un mot de passe est actif', () 
   equal(reminderText(onTime, aroundStart(2)).body, 'Commence maintenant (14:00) · Cabinet');
   const [dayBefore] = getDueReminders([reminderEvent(1440)], aroundStart(-1440));
   equal(reminderText(dayBefore, aroundStart(-1440)).body, 'Vendredi 10 mai à 14:00 · Cabinet');
+});
+
+// ---------------------------------------------------------------
+// Typographie française
+// ---------------------------------------------------------------
+test('Espaces insécables avant « : ; ! ? » et dans les guillemets', () => {
+  const nbsp = '\u00A0';
+  equal(frenchSpacing('Rappel : demain'), `Rappel${nbsp}: demain`);
+  equal(frenchSpacing('Supprimer ce rendez-vous ?'), `Supprimer ce rendez-vous${nbsp}?`);
+  equal(frenchSpacing('Le fichier « agenda.json » ; ok !'), `Le fichier «${nbsp}agenda.json${nbsp}»${nbsp}; ok${nbsp}!`);
+  equal(frenchSpacing('14:00 et https://exemple.fr'), '14:00 et https://exemple.fr', 'heures et adresses intactes');
 });
 
 // ---------------------------------------------------------------
