@@ -1,8 +1,8 @@
 // =============================================================
 // fonts.js — Police d'écriture et taille du texte
 // -------------------------------------------------------------
-// Pour l'instant : la taille du texte. Le choix de la police
-// sera ajouté à l'étape 4.
+// Les polices elles-mêmes sont déclarées dans css/fonts.css et
+// rangées dans assets/fonts/ (aucun téléchargement).
 //
 // Toute l'interface est mesurée en « rem » (une unité relative
 // à la taille du texte) : agrandir le texte agrandit aussi les
@@ -10,6 +10,46 @@
 // =============================================================
 
 import { setSetting, updateAppearanceCache } from './storage.js';
+
+// ---------------------------------------------------------------
+// Police d'écriture
+// ---------------------------------------------------------------
+
+/** Polices proposées. `id` correspond à l'attribut data-font de css/fonts.css. */
+export const FONTS = [
+  { id: 'systeme', label: "Police de l'appareil", description: 'La police habituelle de ton téléphone ou ordinateur' },
+  { id: 'atkinson', label: 'Atkinson Hyperlegible', description: 'Lettres très distinctes, pour les personnes malvoyantes' },
+  { id: 'lexend', label: 'Lexend', description: 'Espacée, pour faciliter la lecture' },
+  { id: 'opendyslexic', label: 'OpenDyslexic', description: 'Pensée pour les personnes dyslexiques' },
+  { id: 'andika', label: 'Andika', description: "Lettres simples, comme apprises à l'école" },
+  { id: 'literata', label: 'Literata', description: 'Style livre, avec empattements' },
+  { id: 'nunito', label: 'Nunito', description: 'Arrondie et douce' },
+  { id: 'patrick-hand', label: 'Patrick Hand', description: 'Écriture manuscrite' },
+];
+
+export const DEFAULT_FONT = 'systeme';
+
+function findFont(id) {
+  return FONTS.find((font) => font.id === id) || FONTS.find((font) => font.id === DEFAULT_FONT);
+}
+
+/** Applique une police à toute la page. Renvoie l'identifiant appliqué. */
+export function applyFont(id) {
+  const font = findFont(id);
+  document.documentElement.dataset.font = font.id;
+  return font.id;
+}
+
+/** Mémorise la police choisie. */
+export async function saveFont(id) {
+  const font = findFont(id);
+  updateAppearanceCache({ font: font.id });
+  await setSetting('font', font.id);
+}
+
+// ---------------------------------------------------------------
+// Taille du texte
+// ---------------------------------------------------------------
 
 /** Tailles de texte proposées (en pourcentage de la taille normale). */
 export const TEXT_SIZES = [

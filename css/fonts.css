@@ -1,0 +1,133 @@
+/* =============================================================
+   fonts.css — Les polices d'écriture incluses dans l'application
+   -------------------------------------------------------------
+   Les fichiers sont dans assets/fonts/ : rien n'est téléchargé
+   depuis internet. Toutes ces polices sont sous licence libre
+   SIL Open Font License 1.1 (voir assets/fonts/licences/).
+
+   Le choix de l'utilisateur est posé sur la page sous la forme
+   data-font="lexend" (par js/fonts.js). Chaque choix change la
+   variable --font-body, utilisée par tout le texte.
+   ============================================================= */
+
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  src: url("../assets/fonts/atkinson-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  src: url("../assets/fonts/atkinson-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Lexend";
+  src: url("../assets/fonts/lexend-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Lexend";
+  src: url("../assets/fonts/lexend-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "OpenDyslexic";
+  src: url("../assets/fonts/opendyslexic-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "OpenDyslexic";
+  src: url("../assets/fonts/opendyslexic-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Andika";
+  src: url("../assets/fonts/andika-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Andika";
+  src: url("../assets/fonts/andika-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Literata";
+  src: url("../assets/fonts/literata-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Literata";
+  src: url("../assets/fonts/literata-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Nunito";
+  src: url("../assets/fonts/nunito-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Nunito";
+  src: url("../assets/fonts/nunito-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Patrick Hand n'existe qu'en un seul poids : le gras est imité par le navigateur. */
+@font-face {
+  font-family: "Patrick Hand";
+  src: url("../assets/fonts/patrick-hand-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ---------- Correspondance choix → police ----------
+   Après le nom de la police viennent des polices de secours,
+   au cas où un caractère manquerait. */
+[data-font="systeme"] { --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", Ubuntu, Cantarell, "Helvetica Neue", Arial, sans-serif; }
+[data-font="atkinson"] { --font-body: "Atkinson Hyperlegible", system-ui, sans-serif; }
+[data-font="lexend"] { --font-body: "Lexend", system-ui, sans-serif; }
+[data-font="opendyslexic"] { --font-body: "OpenDyslexic", system-ui, sans-serif; }
+[data-font="andika"] { --font-body: "Andika", system-ui, sans-serif; }
+[data-font="literata"] { --font-body: "Literata", Georgia, serif; }
+[data-font="nunito"] { --font-body: "Nunito", system-ui, sans-serif; }
+[data-font="patrick-hand"] { --font-body: "Patrick Hand", "Comic Sans MS", cursive; }
+
+/* Les aperçus du choix de police s'écrivent dans leur propre police. */
+.font-sample {
+  font-family: var(--font-body);
+}

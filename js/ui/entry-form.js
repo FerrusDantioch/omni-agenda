@@ -12,7 +12,7 @@ import {
 import {
   formatISODateLong, isValidISODate, isValidTime, minutesToTime, timeToMinutes, todayISO,
 } from '../dates.js';
-import { htmlToText, textToHtml } from '../sanitize.js';
+import { createRichEditor } from './editor.js';
 
 let idCounter = 0;
 
@@ -35,6 +35,23 @@ function makeField(name, labelText, control, { hint = null, required = false } =
     hintNode,
     errorNode,
   );
+}
+
+/**
+ * Champ « Description » : étiquette, barre d'outils et zone enrichie.
+ * (Une étiquette <label> ne fonctionne pas avec une zone « contenteditable » :
+ * on relie l'étiquette par aria-labelledby, et un clic dessus place le curseur.)
+ */
+function makeDescriptionField(initialHtml) {
+  const id = `champ-description-${++idCounter}`;
+  const labelId = `${id}-etiquette`;
+  const errorNode = el('p', { class: 'field-error', id: `${id}-erreur`, hidden: true });
+  const editor = createRichEditor({ id, labelId, describedBy: errorNode.id, initialHtml });
+  const label = el('span', { class: 'field-label', id: labelId, onclick: () => editor.focus() }, 'Description');
+  return {
+    editor,
+    field: el('div', { class: 'field', 'data-field': 'description' }, label, editor.element, errorNode),
+  };
 }
 
 /**
@@ -110,7 +127,7 @@ export function renderEntryForm({
   const dueInput = el('input', { type: 'date', min: '1900-01-01', max: '2200-12-31', value: entry ? (entry.type === 'task' ? entry.dueDate ?? '' : '') : defaultDueDate });
   const clearDueButton = el('button', { type: 'button', class: 'btn btn-ghost btn-small' }, "Retirer l'échéance");
   const doneInput = el('input', { type: 'checkbox', name: 'done', checked: entry?.type === 'task' && entry.done });
-  const descriptionInput = el('textarea', { rows: 5, maxlength: LIMITS.description }, entry ? htmlToText(entry.description) : '');
+  const description = makeDescriptionField(entry?.description ?? '');
 
   const overnightHint = el('p', { class: 'field-hint', hidden: true }, 'Le rendez-vous se termine le lendemain (il passe minuit).');
   const formError = el('p', { class: 'form-error', role: 'alert', hidden: true });
@@ -145,7 +162,7 @@ export function renderEntryForm({
       makeField('title', 'Titre', titleInput, { required: true }),
       eventSection,
       taskSection,
-      makeField('description', 'Description', descriptionInput),
+      description.field,
       formError,
     ),
     el('div', { class: 'panel-footer' },
@@ -195,7 +212,7 @@ export function renderEntryForm({
   const snapshot = () => JSON.stringify([
     titleInput.value, dateInput.value, startInput.value, endInput.value, locationInput.value,
     reminderSelect.value, dueInput.value, form.querySelector('input[name="priority"]:checked')?.value,
-    doneInput.checked, descriptionInput.value,
+    doneInput.checked, description.editor.getHtml(),
   ]);
   let savedSnapshot = snapshot();
 
@@ -217,7 +234,7 @@ export function renderEntryForm({
       const errorNode = field.querySelector('.field-error');
       errorNode.textContent = message;
       errorNode.hidden = false;
-      const control = field.querySelector('input, select, textarea');
+      const control = field.querySelector('input, select, textarea, .rich-editor');
       control.setAttribute('aria-invalid', 'true');
       // On garde le premier champ fautif dans l'ordre de la page.
       if (!firstInvalid || (firstInvalid.compareDocumentPosition(control) & Node.DOCUMENT_POSITION_PRECEDING)) {
@@ -237,7 +254,7 @@ export function renderEntryForm({
     const input = {
       type: currentType,
       title: titleInput.value,
-      description: textToHtml(descriptionInput.value),
+      description: description.editor.getHtml(),
       date: dateInput.value,
       startTime: startInput.value,
       endTime: endInput.value,

@@ -208,3 +208,98 @@ textarea {
 .form-section > .btn-small {
   margin: -0.5rem 0 1rem;
 }
+
+/* ---------- Description enrichie (barre d'outils + zone de texte) ---------- */
+.field > .field-label {
+  font-weight: 600;
+  cursor: default;
+}
+
+.rich-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem;
+  border: 1px solid var(--color-border-strong);
+  border-bottom: 0;
+  border-radius: 0.6rem 0.6rem 0 0;
+  background: var(--color-surface-2);
+}
+
+.tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tool-btn:hover {
+  background: var(--color-accent-soft);
+}
+
+/* Bouton « enfoncé » : le texte choisi a déjà cette mise en forme. */
+.tool-btn[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.tool-swatch {
+  padding: 0;
+}
+
+.swatch {
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 0.35rem;
+}
+
+.swatch.hl-jaune { background: var(--hl-jaune); box-shadow: inset 0 -3px 0 var(--hl-jaune-edge); }
+.swatch.hl-vert { background: var(--hl-vert); box-shadow: inset 0 -3px 0 var(--hl-vert-edge); }
+.swatch.hl-bleu { background: var(--hl-bleu); box-shadow: inset 0 -3px 0 var(--hl-bleu-edge); }
+.swatch.hl-rose { background: var(--hl-rose); box-shadow: inset 0 -3px 0 var(--hl-rose-edge); }
+
+.toolbar-label {
+  margin-left: 0.4rem;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.rich-editor {
+  min-height: 8rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 0 0 0.6rem 0.6rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.rich-editor:focus {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.rich-editor[aria-invalid="true"] {
+  border: 2px solid var(--color-danger);
+}
+
+/* Petit message (« Sélectionne d'abord le texte… »). */
+.editor-hint {
+  min-height: 1.4em;
+  margin: 0.25rem 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}

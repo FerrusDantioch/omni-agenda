@@ -164,3 +164,22 @@
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
+
+/* ---------- Texte enrichi : surlignages ----------
+   Fond doux + trait en bas, dans les couleurs du thème. */
+mark {
+  padding: 0 0.15em;
+  border-radius: 0.2em;
+  color: inherit;
+}
+
+mark.hl-jaune { background: var(--hl-jaune); box-shadow: inset 0 -2px 0 var(--hl-jaune-edge); }
+mark.hl-vert { background: var(--hl-vert); box-shadow: inset 0 -2px 0 var(--hl-vert-edge); }
+mark.hl-bleu { background: var(--hl-bleu); box-shadow: inset 0 -2px 0 var(--hl-bleu-edge); }
+mark.hl-rose { background: var(--hl-rose); box-shadow: inset 0 -2px 0 var(--hl-rose-edge); }
+
+.rich-text u,
+.rich-editor u {
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.15em;
+}

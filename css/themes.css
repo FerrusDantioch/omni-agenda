@@ -34,6 +34,15 @@
   /* Papier : texture discrète (grain clair) et ombre près de la reliure. */
   --paper-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   --page-fold: rgba(0, 0, 0, 0.35);
+  /* Surlignages : fond doux + trait plus marqué (visible même sans distinguer les couleurs). */
+  --hl-jaune: #5a4b1e;
+  --hl-jaune-edge: #c9a43f;
+  --hl-vert: #1f4d38;
+  --hl-vert-edge: #56ad84;
+  --hl-bleu: #20426a;
+  --hl-bleu-edge: #6a9edb;
+  --hl-rose: #5c2849;
+  --hl-rose-edge: #cf7aab;
 }
 
 /* ---------- Thème « Sombre » ----------
@@ -59,6 +68,14 @@
   --shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
   --paper-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   --page-fold: rgba(0, 0, 0, 0.3);
+  --hl-jaune: #5a4b1e;
+  --hl-jaune-edge: #c9a43f;
+  --hl-vert: #1f4d38;
+  --hl-vert-edge: #56ad84;
+  --hl-bleu: #20426a;
+  --hl-bleu-edge: #6a9edb;
+  --hl-rose: #5c2849;
+  --hl-rose-edge: #cf7aab;
 }
 
 /* ---------- Thème « Clair » ----------
@@ -85,4 +102,12 @@
   /* Papier crème : grain brun très léger. */
   --paper-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.27 0 0 0 0 0.15 0 0 0 0.12 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   --page-fold: rgba(90, 70, 40, 0.16);
+  --hl-jaune: #f3dc8a;
+  --hl-jaune-edge: #8a6a12;
+  --hl-vert: #cce6bd;
+  --hl-vert-edge: #3d7a2e;
+  --hl-bleu: #c6dcf3;
+  --hl-bleu-edge: #2f6aa8;
+  --hl-rose: #f2cadb;
+  --hl-rose-edge: #a2457a;
 }

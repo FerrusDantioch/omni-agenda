@@ -3,7 +3,7 @@
 // -------------------------------------------------------------
 // Ce fichier assemble toutes les pièces :
 //   1. il lit les réglages mémorisés ;
-//   2. il applique le thème et la taille du texte ;
+//   2. il applique le thème, la police et la taille du texte ;
 //   3. il prépare les écrans et la fenêtre des entrées ;
 //   4. il charge les rendez-vous et les tâches ;
 //   5. il affiche l'agenda et démarre la navigation entre écrans.
@@ -11,7 +11,7 @@
 
 import { getSetting, setSetting } from './storage.js';
 import { applyTheme, DEFAULT_THEME } from './themes.js';
-import { applyTextSize, DEFAULT_TEXT_SIZE } from './fonts.js';
+import { applyFont, applyTextSize, DEFAULT_FONT, DEFAULT_TEXT_SIZE } from './fonts.js';
 import { loadEntries } from './entry-store.js';
 import { startRouter } from './router.js';
 import { initSettings } from './ui/settings.js';
@@ -33,10 +33,11 @@ const STORAGE_WARNING =
 
 async function start() {
   // 1. Lecture des réglages (avec des valeurs par défaut en cas de souci).
-  const settings = { theme: DEFAULT_THEME, textSize: DEFAULT_TEXT_SIZE, agendaView: DEFAULT_VIEW };
+  const settings = { theme: DEFAULT_THEME, font: DEFAULT_FONT, textSize: DEFAULT_TEXT_SIZE, agendaView: DEFAULT_VIEW };
   let storageAvailable = true;
   try {
     settings.theme = await getSetting('theme', DEFAULT_THEME);
+    settings.font = await getSetting('font', DEFAULT_FONT);
     settings.textSize = await getSetting('textSize', DEFAULT_TEXT_SIZE);
     settings.agendaView = await getSetting('agendaView', DEFAULT_VIEW);
   } catch (error) {
@@ -47,6 +48,7 @@ async function start() {
 
   // 2. Apparence.
   settings.theme = applyTheme(settings.theme);
+  settings.font = applyFont(settings.font);
   settings.textSize = applyTextSize(settings.textSize);
 
   // 3. Écrans.
