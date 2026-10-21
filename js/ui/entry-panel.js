@@ -71,9 +71,12 @@ function showDetails(entryId, notice = null) {
 }
 
 async function removeEntry(entry) {
+  const isEvent = entry.type === 'event';
   const confirmed = await confirmAction({
-    title: 'Supprimer cette entrée ?',
-    message: `« ${entry.title} » sera supprimé définitivement.`,
+    title: isEvent ? 'Supprimer ce rendez-vous ?' : 'Supprimer cette tâche ?',
+    message: isEvent
+      ? `Le rendez-vous « ${entry.title} » sera supprimé définitivement.`
+      : `La tâche « ${entry.title} » sera supprimée définitivement.`,
     confirmLabel: 'Supprimer',
     danger: true,
   });
