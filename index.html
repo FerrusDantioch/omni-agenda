@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="fr" data-theme="omni">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!--
+    Règle de sécurité (« Content Security Policy ») :
+    la page n'a le droit de charger QUE ses propres fichiers.
+    Aucun script extérieur, aucune police ou image venant d'internet.
+  -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+  <meta name="description" content="Omni-Agenda : ton agenda privé, hors ligne, sans compte et sans publicité.">
+  <meta name="theme-color" content="#1b1726">
+  <title>Omni-Agenda</title>
+  <link rel="icon" href="assets/icons/logo.svg" type="image/svg+xml">
+
+  <link rel="stylesheet" href="css/themes.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+
+  <!-- Applique le thème mémorisé AVANT l'affichage (évite un flash de couleur). -->
+  <script src="js/boot.js"></script>
+  <!-- Le programme principal de l'application. -->
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <!-- Lien caché, visible seulement au clavier : permet de sauter directement au contenu. -->
+  <a class="skip-link" href="#contenu">Aller au contenu</a>
+
+  <!-- ============ Barre du haut ============ -->
+  <header class="app-header">
+    <a class="brand" href="#/" aria-label="Omni-Agenda — retour à l'agenda">
+      <img src="assets/icons/logo.svg" alt="" width="36" height="36">
+      <span class="brand-name">Omni-Agenda</span>
+    </a>
+    <nav class="header-actions" aria-label="Menu principal">
+      <a class="btn btn-ghost" href="#/reglages">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+        <span>Réglages</span>
+      </a>
+    </nav>
+  </header>
+
+  <!-- Bandeau d'information (caché tant qu'il n'y a rien à dire). -->
+  <div id="bandeau" class="banner" role="status" hidden></div>
+
+  <main id="contenu" class="app-main" tabindex="-1">
+
+    <!-- ============ Écran : agenda (accueil) ============ -->
+    <section class="screen" data-screen="agenda" data-title="Omni-Agenda" aria-labelledby="titre-accueil">
+      <div class="welcome">
+        <img class="welcome-logo" src="assets/icons/logo.svg" alt="" width="96" height="96">
+        <h1 id="titre-accueil">Bienvenue dans Omni-Agenda</h1>
+        <p class="welcome-date" id="date-du-jour"></p>
+        <p>Ton agenda privé : tout reste sur cet appareil.<br>
+           Pas de compte, pas de publicité, pas besoin d'internet.</p>
+        <p class="muted small">Les pages de l'agenda arriveront aux prochaines étapes.</p>
+      </div>
+    </section>
+
+    <!-- ============ Écran : réglages ============ -->
+    <section class="screen" data-screen="reglages" data-title="Réglages — Omni-Agenda" aria-labelledby="titre-reglages" hidden>
+      <div class="screen-header">
+        <a class="btn btn-ghost" href="#/">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          <span>Retour à l'agenda</span>
+        </a>
+        <h1 id="titre-reglages">Réglages</h1>
+      </div>
+
+      <div class="card">
+        <h2>Apparence</h2>
+        <fieldset>
+          <legend>Thème</legend>
+          <div class="choices" id="choix-theme"></div>
+        </fieldset>
+        <fieldset>
+          <legend>Taille du texte</legend>
+          <div class="choices choices-compact" id="choix-taille-texte"></div>
+        </fieldset>
+      </div>
+
+      <div class="card">
+        <h2>Informations</h2>
+        <a class="btn" href="#/a-propos">À propos d'Omni-Agenda</a>
+      </div>
+    </section>
+
+    <!-- ============ Écran : à propos ============ -->
+    <section class="screen" data-screen="a-propos" data-title="À propos — Omni-Agenda" aria-labelledby="titre-a-propos" hidden>
+      <div class="screen-header">
+        <a class="btn btn-ghost" href="#/reglages">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m15 18-6-6 6-6"/></svg>
+          <span>Retour aux réglages</span>
+        </a>
+      </div>
+
+      <div class="card about">
+        <img class="about-logo" src="assets/icons/logo.svg" alt="" width="88" height="88">
+        <h1 id="titre-a-propos">À propos d'Omni-Agenda</h1>
+        <p class="muted">Version <span data-app-version></span></p>
+
+        <p>Application réalisée par Ferrus Dantioch, avec la collaboration de Claude (IA développée par Anthropic).</p>
+
+        <ul class="about-facts">
+          <li>Application gratuite</li>
+          <li>Sans publicité</li>
+          <li>Sans collecte de données : tout reste sur ton appareil</li>
+          <li>Fonctionne sans internet</li>
+        </ul>
+
+        <!-- Le seul lien vers internet. L'adresse vient de js/config.js. -->
+        <a id="lien-portfolio" class="btn btn-primary" target="_blank" rel="noopener noreferrer">Découvrir mon portfolio</a>
+        <p id="message-portfolio" class="notice" role="status" hidden>Connecte-toi à internet pour ouvrir le portfolio.</p>
+        <p class="muted small">Ce bouton est le seul lien de l'application vers internet. Il s'ouvre uniquement si tu le touches.</p>
+      </div>
+    </section>
+  </main>
+
+  <noscript>
+    <p class="notice">Omni-Agenda a besoin de JavaScript pour fonctionner. Active-le dans les réglages de ton navigateur.</p>
+  </noscript>
+</body>
+</html>

@@ -1,0 +1,136 @@
+/* =============================================================
+   base.css — Règles de base, lisibilité et accessibilité
+   -------------------------------------------------------------
+   « rem » est une unité de taille relative au texte : quand
+   l'utilisateur agrandit le texte, tout grandit avec lui.
+   ============================================================= */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  /* La taille du texte est réglée par l'utilisateur (réglages ou navigateur). */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* Police par défaut : celle de l'appareil. D'autres polices arriveront à l'étape 4. */
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", Ubuntu, Cantarell, "Helvetica Neue", Arial, sans-serif;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.55;
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.25;
+  margin: 0 0 0.75rem;
+  font-weight: 650;
+}
+
+h1 { font-size: 1.6rem; }
+h2 { font-size: 1.25rem; }
+h3 { font-size: 1.1rem; }
+
+p {
+  margin: 0 0 0.75rem;
+}
+
+a {
+  color: var(--color-accent);
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+/* Un attribut « hidden » cache TOUJOURS l'élément. */
+[hidden] {
+  display: none !important;
+}
+
+/* ---------- Contour visible au clavier ----------
+   Quand on navigue avec la touche Tab, l'élément actif est entouré. */
+:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* Les titres reçoivent le focus lors d'un changement d'écran
+   (pour les lecteurs d'écran) : inutile de les entourer. */
+[tabindex="-1"]:focus {
+  outline: none;
+}
+
+/* ---------- Texte réservé aux lecteurs d'écran ---------- */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- Lien « Aller au contenu » (visible seulement au clavier) ---------- */
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -10rem;
+  z-index: 100;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-weight: 600;
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
+
+/* ---------- Petites classes utiles ---------- */
+.muted {
+  color: var(--color-text-muted);
+}
+
+.small {
+  font-size: 0.9rem;
+}
+
+/* ---------- Transition douce lors d'un changement de thème ----------
+   Ajoutée par js/themes.js pendant 0,4 seconde, puis retirée. */
+.theme-transition,
+.theme-transition *,
+.theme-transition *::before,
+.theme-transition *::after {
+  transition: background-color 0.35s ease, color 0.35s ease, border-color 0.35s ease !important;
+}
+
+/* ---------- Respect de la préférence « réduire les animations » ----------
+   Si l'appareil le demande : aucune animation, aucune transition. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
