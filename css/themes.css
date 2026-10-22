@@ -10,7 +10,7 @@
    ============================================================= */
 
 /* ---------- Thème « Omni-système » (thème par défaut) ----------
-   Fond sombre, accents violets lumineux, comme l'icône du dé. */
+   Fond sombre, accents violets lumineux, comme l'anneau du logo. */
 :root,
 [data-theme="omni"] {
   color-scheme: dark;

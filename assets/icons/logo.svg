@@ -1,7 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Omni-Agenda">
   <!--
-    Logo d'Omni-Agenda : un dé à 20 faces violet entouré d'un anneau lumineux.
-    Chaque face est un triangle ; les teintes différentes donnent l'effet de relief.
+    Logo d'Omni-Agenda : un agenda ouvert sur deux pages, entouré d'un anneau lumineux.
+    Page de gauche : des lignes d'écriture. Page de droite : un petit calendrier,
+    avec la case du jour en doré. Un ruban marque-page dépasse sous le livre.
   -->
   <defs>
     <radialGradient id="halo" cx="50%" cy="50%" r="50%">
@@ -15,20 +16,39 @@
   <circle cx="50" cy="50" r="49" fill="url(#halo)"/>
   <circle cx="50" cy="50" r="44" fill="none" stroke="#bf9dff" stroke-width="3"/>
 
-  <!-- Faces du dé -->
-  <g stroke="#ece2ff" stroke-width="1.4" stroke-linejoin="round">
-    <!-- 6 faces extérieures -->
-    <polygon points="50,31 50,16 79.44,33" fill="#8a60ec"/>
-    <polygon points="50,31 50,16 20.56,33" fill="#7d52e3"/>
-    <polygon points="66.45,59.5 79.44,33 79.44,67" fill="#6c43d4"/>
-    <polygon points="66.45,59.5 79.44,67 50,84" fill="#5d36c1"/>
-    <polygon points="33.55,59.5 50,84 20.56,67" fill="#5a33bd"/>
-    <polygon points="33.55,59.5 20.56,67 20.56,33" fill="#7148d9"/>
-    <!-- 3 faces autour du centre -->
-    <polygon points="50,31 66.45,59.5 79.44,33" fill="#9b74f5"/>
-    <polygon points="66.45,59.5 33.55,59.5 50,84" fill="#8259e6"/>
-    <polygon points="33.55,59.5 50,31 20.56,33" fill="#946bf2"/>
-    <!-- Face centrale, la plus claire -->
-    <polygon points="50,31 66.45,59.5 33.55,59.5" fill="#c4a6ff"/>
+  <!-- Couverture -->
+  <path d="M50 37 C42 31 29 30 16 32 L16 72 C29 70 42 71 50 77 C58 71 71 70 84 72 L84 32 C71 30 58 31 50 37 Z" fill="#5d36c1"/>
+
+  <!-- Ruban marque-page (dessiné avant les pages : seul le bas dépasse) -->
+  <path d="M60 60 L60 84 L63.5 80.5 L67 84 L67 60 Z" fill="#f2b84b" stroke="#c98f22" stroke-width="0.8" stroke-linejoin="round"/>
+
+  <!-- Pages, légèrement courbées, et la reliure au milieu -->
+  <path d="M50 34 C42 28 31 27 20 29 L20 68 C31 66 42 67 50 73 Z" fill="#f4eeff"/>
+  <path d="M50 34 C58 28 69 27 80 29 L80 68 C69 66 58 67 50 73 Z" fill="#e4d8ff"/>
+  <path d="M50 34 L50 73" stroke="#9b74f5" stroke-width="1.6"/>
+
+  <!-- Page de gauche : lignes d'écriture -->
+  <g fill="none" stroke="#9b74f5" stroke-width="2.2" stroke-linecap="round">
+    <path d="M25 39 C32 38 39 38.5 45 41"/>
+    <path d="M25 46.5 C32 45.5 39 46 45 48.5"/>
+    <path d="M25 54 C32 53 39 53.5 45 56"/>
+    <path d="M25 61.5 C31 60.7 36 61 40 62.5"/>
   </g>
+
+  <!-- Page de droite : petit calendrier (les colonnes suivent la courbe de la page) -->
+  <g fill="#b79cf7">
+    <rect x="55" y="38.7" width="5.2" height="5.2" rx="1.2"/>
+    <rect x="62.5" y="37.5" width="5.2" height="5.2" rx="1.2"/>
+    <rect x="70" y="36.7" width="5.2" height="5.2" rx="1.2"/>
+    <rect x="55" y="45.7" width="5.2" height="5.2" rx="1.2"/>
+    <rect x="70" y="43.7" width="5.2" height="5.2" rx="1.2"/>
+    <rect x="55" y="52.7" width="5.2" height="5.2" rx="1.2"/>
+    <rect x="62.5" y="51.5" width="5.2" height="5.2" rx="1.2"/>
+    <rect x="70" y="50.7" width="5.2" height="5.2" rx="1.2"/>
+    <rect x="55" y="59.7" width="5.2" height="5.2" rx="1.2"/>
+    <rect x="62.5" y="58.5" width="5.2" height="5.2" rx="1.2"/>
+    <rect x="70" y="57.7" width="5.2" height="5.2" rx="1.2"/>
+  </g>
+  <!-- La case du jour -->
+  <rect x="62.5" y="44.5" width="5.2" height="5.2" rx="1.2" fill="#f2b84b"/>
 </svg>
