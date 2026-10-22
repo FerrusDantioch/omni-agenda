@@ -261,7 +261,7 @@ omni-agenda/
 │   ├── ui/                 Les éléments de l'interface (fenêtres, formulaires, réglages…)
 │   └── views/              Les vues de l'agenda (jour, semaine, mois, livre)
 ├── assets/
-│   ├── icons/              Logo (dé à 20 faces) et icônes de l'application
+│   ├── icons/              Logo (agenda ouvert) et icônes de l'application
 │   └── fonts/              Polices et leurs licences
 ├── tests/                  Page de tests automatiques (tests.html)
 └── docs/captures/          Captures d'écran de ce README
