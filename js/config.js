@@ -9,11 +9,12 @@
 export const APP_NAME = 'Omni-Agenda';
 
 /** Numéro de version. À augmenter à chaque nouvelle publication. */
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.0.1';
 
 /**
  * Adresse du portfolio, ouverte par le bouton « Découvrir mon portfolio »
- * de la page « À propos ». C'est le SEUL lien de l'application vers internet.
+ * de la page « À propos ». Avec le lien de la licence (même page), c'est le
+ * SEUL lien de l'application vers internet.
  * Pour la changer : remplace simplement le texte entre les apostrophes.
  * L'adresse doit commencer par « https:// ».
  */

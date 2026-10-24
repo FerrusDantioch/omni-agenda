@@ -275,7 +275,7 @@ omni-agenda/
 - **Aucune donnée ne quitte ton appareil.**
   - Pas de compte, pas de cookie, pas de statistiques, pas de publicité.
   - Une règle de sécurité (« Content Security Policy ») interdit à la page de charger quoi que ce soit venant d'un autre site.
-- **Le seul lien vers internet** est le bouton « Découvrir mon portfolio » de la page « À propos ». Il ne s'ouvre que si tu le touches.
+- **Les seuls liens vers internet** sont le bouton « Découvrir mon portfolio » et le lien de la licence, tous deux sur la page « À propos ». Ils ne s'ouvrent que si tu les touches.
 - **Mot de passe facultatif** :
   - chaque rendez-vous et chaque tâche est chiffré avec **AES-GCM 256 bits** ;
   - la clé est obtenue à partir du mot de passe avec **PBKDF2-SHA-256 (600 000 tours)** et un sel aléatoire ;
@@ -311,8 +311,15 @@ Application réalisée par **Ferrus Dantioch**, avec la collaboration de **Claud
 
 ## 11. Licence
 
-Distribué sous licence **[Creative Commons BY-NC-ND 4.0](LICENSE)** (Attribution - Utilisation non commerciale - Pas d'Œuvre dérivée), avec le texte officiel en anglais et sa traduction française officielle.
+**© 2026 Ferrus Dantioch — Creative Commons BY-NC-ND 4.0**
+([résumé de la licence en français](https://creativecommons.org/licenses/by-nc-nd/4.0/deed.fr))
 
-Ce logiciel peut être utilisé et partagé en copies identiques, gratuitement, à condition de citer l'auteur (Ferrus Dantioch) et d'indiquer la licence. Il est interdit de le vendre ou d'en tirer un profit commercial, et de diffuser une version modifiée. Le logiciel est fourni « en l'état », sans aucune garantie.
+En clair : le partage est autorisé, à l'identique et en citant l'auteur ;
+l'usage commercial est interdit ; la modification et les œuvres dérivées
+sont interdites. Le logiciel est fourni « en l'état », sans aucune garantie.
+
+Texte complet dans le fichier [LICENSE](LICENSE) : le texte officiel en
+anglais, suivi de la traduction française officielle publiée par Creative
+Commons.
 
 Les polices gardent leur propre licence (voir la section 10).

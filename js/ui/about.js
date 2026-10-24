@@ -2,7 +2,7 @@
 // ui/about.js — L'écran « À propos »
 // -------------------------------------------------------------
 // Affiche la version et prépare le bouton du portfolio.
-// Ce bouton est le SEUL lien vers internet. S'il n'y a pas de
+// Avec le lien de la licence, c'est le SEUL lien vers internet. S'il n'y a pas de
 // connexion, on affiche un message au lieu d'ouvrir une page vide.
 // =============================================================
 
