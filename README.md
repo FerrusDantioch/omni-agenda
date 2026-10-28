@@ -26,6 +26,7 @@ Tes rendez-vous et tes tâches restent chez toi.
 8. [Confidentialité et sécurité](#8-confidentialité-et-sécurité)
 9. [Limites connues](#9-limites-connues)
 10. [Polices, licences et crédits](#10-polices-licences-et-crédits)
+11. [Licence](#11-licence)
 
 ---
 
@@ -275,7 +276,7 @@ omni-agenda/
 - **Aucune donnée ne quitte ton appareil.**
   - Pas de compte, pas de cookie, pas de statistiques, pas de publicité.
   - Une règle de sécurité (« Content Security Policy ») interdit à la page de charger quoi que ce soit venant d'un autre site.
-- **Le seul lien vers internet** est le bouton « Découvrir mon portfolio » de la page « À propos ». Il ne s'ouvre que si tu le touches.
+- **Les seuls liens vers internet** sont le bouton « Découvrir mon portfolio » et le lien de la licence, tous deux sur la page « À propos ». Ils ne s'ouvrent que si tu les touches.
 - **Mot de passe facultatif** :
   - chaque rendez-vous et chaque tâche est chiffré avec **AES-GCM 256 bits** ;
   - la clé est obtenue à partir du mot de passe avec **PBKDF2-SHA-256 (600 000 tours)** et un sel aléatoire ;
@@ -306,3 +307,20 @@ omni-agenda/
 - Omni-Agenda n'utilise **aucune bibliothèque extérieure** : uniquement du HTML, du CSS et du JavaScript, sans outil de construction.
 
 Application réalisée par **Ferrus Dantioch**, avec la collaboration de **Claude** (IA développée par Anthropic).
+
+---
+
+## 11. Licence
+
+**© 2026 Ferrus Dantioch — Creative Commons BY-NC-ND 4.0**
+([résumé de la licence en français](https://creativecommons.org/licenses/by-nc-nd/4.0/deed.fr))
+
+En clair : le partage est autorisé, à l'identique et en citant l'auteur ;
+l'usage commercial est interdit ; la modification et les œuvres dérivées
+sont interdites. Le logiciel est fourni « en l'état », sans aucune garantie.
+
+Texte complet dans le fichier [LICENSE](LICENSE) : le texte officiel en
+anglais, suivi de la traduction française officielle publiée par Creative
+Commons.
+
+Les polices gardent leur propre licence (voir la section 10).
