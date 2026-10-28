@@ -22,7 +22,7 @@ import { initPasswordSettings } from './ui/password-settings.js';
 import { setLocked, showLockScreen } from './ui/lock-screen.js';
 import { initAppSettings } from './ui/app-settings.js';
 import { loadProtection } from './security.js';
-import { startOffline } from './offline.js';
+import { applyUpdate, startOffline } from './offline.js';
 import { startReminders } from './notifications.js';
 import { applyFrenchSpacing, el, setText } from './ui/dom.js';
 import { initEntryPanel, openEntryDetails, openNewEntry } from './ui/entry-panel.js';
@@ -36,12 +36,23 @@ function showBanner(message) {
   banner.hidden = false;
 }
 
-/** Une nouvelle version a été téléchargée : on le dit, sans obliger à recharger. */
+/**
+ * Une nouvelle version a été téléchargée et mise de côté : on le dit.
+ * Rien ne change tant que la personne n'a pas touché « Mettre à jour ».
+ */
 function showUpdateBanner() {
   const banner = document.getElementById('bandeau');
+  const button = el('button', {
+    type: 'button',
+    class: 'btn btn-small',
+    onclick: () => {
+      button.disabled = true;
+      applyUpdate();
+    },
+  }, 'Mettre à jour');
   banner.replaceChildren(
-    "Une nouvelle version d'Omni-Agenda est prête. ",
-    el('button', { type: 'button', class: 'btn btn-small', onclick: () => window.location.reload() }, 'Recharger maintenant'),
+    "Une nouvelle version d'Omni-Agenda est prête. Rien ne change tant que tu ne l'as pas décidé. ",
+    button,
   );
   banner.hidden = false;
 }
