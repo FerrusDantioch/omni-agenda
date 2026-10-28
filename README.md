@@ -205,11 +205,12 @@ Dans tous les cas, **les données restent sur chaque appareil** : un hébergeur 
 
 1. Modifie les fichiers sur ton ordinateur.
 2. Recharge Omni-Agenda dans le navigateur : le bandeau **« Une nouvelle version d'Omni-Agenda est prête »** apparaît.
-3. Clique sur **« Recharger maintenant »** pour voir ta modification.
+3. Clique sur **« Mettre à jour »** pour voir ta modification. Tant que tu ne cliques pas,
+   rien ne change, même si tu fermes et rouvres l'application : la nouvelle version attend ton accord.
 4. Pour garder ton travail, envoie les fichiers modifiés sur la branche `main` de GitHub
    (avec Git, ou par **Add file** → **Upload files** sur le site de GitHub).
 
-Si Omni-Agenda est un jour publiée sur internet, la mise à jour fonctionne de la même façon : à la prochaine ouverture avec internet, elle télécharge la nouvelle version toute seule.
+Si Omni-Agenda est un jour publiée sur internet, la mise à jour fonctionne de la même façon : à la prochaine ouverture avec internet, elle télécharge la nouvelle version toute seule, puis propose « Mettre à jour ». Elle ne s'installe jamais par surprise.
 
 Deux règles à respecter :
 

@@ -3,8 +3,10 @@
 // -------------------------------------------------------------
 // Inscrit le service worker (voir sw.js à la racine du site), qui
 // garde une copie complète de l'application sur l'appareil.
-// Au démarrage, s'il y a internet, on lui demande de vérifier si
-// une nouvelle version a été publiée.
+// Au démarrage, on lui demande si une nouvelle version attend déjà,
+// et, s'il y a internet, de vérifier si une nouvelle version a été
+// publiée. Une nouvelle version n'entre en service que lorsque la
+// personne touche « Mettre à jour » (voir applyUpdate).
 // =============================================================
 
 // Mêmes noms que dans sw.js.
@@ -18,25 +20,34 @@ export function isOfflineSupported() {
 
 /**
  * Inscrit le service worker. `onUpdateReady()` est appelée quand une
- * nouvelle version a été téléchargée (elle s'appliquera au prochain
- * démarrage, ou tout de suite si l'utilisateur recharge).
+ * nouvelle version est téléchargée et mise de côté : elle attend que
+ * la personne touche « Mettre à jour » (voir applyUpdate), même si
+ * l'application est fermée puis rouverte entre-temps.
  */
 export async function startOffline({ onUpdateReady }) {
   if (!isOfflineSupported()) return;
 
   navigator.serviceWorker.addEventListener('message', (event) => {
     if (event.data?.type === 'mise-a-jour-prete') onUpdateReady();
+    // La nouvelle version est en service : on recharge pour l'afficher.
+    if (event.data?.type === 'mise-a-jour-appliquee') window.location.reload();
   });
 
   try {
     // « updateViaCache: none » : le navigateur vérifie toujours la dernière version de sw.js.
     await navigator.serviceWorker.register('sw.js', { scope: './', updateViaCache: 'none' });
     const registration = await navigator.serviceWorker.ready;
-    if (navigator.onLine) registration.active?.postMessage({ type: 'verifier-mise-a-jour' });
+    registration.active?.postMessage({ type: 'verifier-mise-a-jour', online: navigator.onLine });
   } catch (error) {
     // Sans service worker, l'application fonctionne quand même (mais pas hors ligne).
     console.warn('Mode hors ligne indisponible :', error);
   }
+}
+
+/** « Mettre à jour » : la nouvelle version entre en service, puis la page se recharge. */
+export async function applyUpdate() {
+  const registration = await navigator.serviceWorker.ready;
+  registration.active?.postMessage({ type: 'appliquer-mise-a-jour' });
 }
 
 /** Vrai si une copie complète de l'application est enregistrée sur l'appareil. */
