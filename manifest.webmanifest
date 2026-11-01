@@ -4,7 +4,7 @@
   "description": "Ton agenda privé, hors ligne, sans compte et sans publicité.",
   "lang": "fr",
   "dir": "ltr",
-  "id": "./",
+  "id": "/omni-agenda/",
   "start_url": "./#/",
   "scope": "./",
   "display": "standalone",
