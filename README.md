@@ -306,7 +306,7 @@ omni-agenda/
   Leurs licences sont dans `assets/fonts/licences/`, et leur origine est expliquée dans `assets/fonts/LISEZ-MOI.md`.
 - Omni-Agenda n'utilise **aucune bibliothèque extérieure** : uniquement du HTML, du CSS et du JavaScript, sans outil de construction.
 
-Application réalisée par **Ferrus Dantioch**, avec la collaboration de **Claude** (IA développée par Anthropic).
+Application réalisée par **Ferrus Dantioch**, avec l'aide de l'**intelligence artificielle**.
 
 ---
 
