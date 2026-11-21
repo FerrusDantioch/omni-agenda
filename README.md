@@ -105,7 +105,7 @@ Pour arrêter le serveur : dans le terminal, appuie sur **Ctrl + C**.
 ### Tests automatiques
 
 1. Le serveur local étant lancé, ouvre : **<http://localhost:8080/tests/tests.html>**
-2. Attends quelques secondes. Tu dois voir en vert : **« ✓ Les 56 tests sont réussis. »**
+2. Attends quelques secondes. Tu dois voir en vert : **« ✓ Les 57 tests sont réussis. »**
 
 Ces tests vérifient notamment :
 - les calculs de dates et les changements d'heure ;
@@ -210,12 +210,19 @@ Dans tous les cas, **les données restent sur chaque appareil** : un hébergeur 
 
 Si Omni-Agenda est un jour publiée sur internet, la mise à jour fonctionne de la même façon : à la prochaine ouverture avec internet, elle télécharge la nouvelle version toute seule.
 
-Deux règles à respecter :
+Trois règles à respecter :
 
 - **Si tu ajoutes un nouveau fichier** (`.js`, `.css`, police, icône…), ajoute-le aussi à la liste `FILES` du fichier `sw.js`.
   Sinon, il manquera quand l'application fonctionne sans internet.
 - **Le numéro de version** affiché dans « À propos » se change dans `js/config.js` (`APP_VERSION`).
   Ce n'est pas obligatoire pour la mise à jour, mais c'est utile pour s'y retrouver.
+- **Ne change pas l'identité** de l'application : dans `manifest.webmanifest`, `"id"` vaut
+  `"/omni-agenda/"`, jamais `"./"`. Le navigateur lit cet « id » depuis la racine du site :
+  `"./"` donnerait l'identité `ferrusdantioch.github.io/`, partagée avec d'autres applications
+  de l'Omni-système, et le navigateur les confondrait (installer l'une proposerait d'« ouvrir »
+  une autre). Corrigé le 21 novembre 2026 (version 1.0.1) ; une Omni-Agenda installée avant
+  continue de marcher, mais pour profiter de la correction il faut la réinstaller, après avoir
+  fait une sauvegarde de l'agenda.
 
 L'adresse du portfolio (bouton « Découvrir mon portfolio ») se change aussi dans `js/config.js` (`PORTFOLIO_URL`).
 

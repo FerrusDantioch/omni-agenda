@@ -9,7 +9,7 @@
 export const APP_NAME = 'Omni-Agenda';
 
 /** Numéro de version. À augmenter à chaque nouvelle publication. */
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.0.1';
 
 /**
  * Adresse du portfolio, ouverte par le bouton « Découvrir mon portfolio »

@@ -541,6 +541,18 @@ test('Rangement des entrées : par jour, en retard, sans échéance', () => {
 });
 
 // ---------------------------------------------------------------
+// Identité de l'application (manifest.webmanifest)
+// ---------------------------------------------------------------
+test('L’identité de l’application est « /omni-agenda/ », jamais « ./ »', async () => {
+  // Le navigateur lit l'« id » depuis la racine du site : « ./ » donnerait l'identité
+  // « ferrusdantioch.github.io/ », partagée avec d'autres applications de Ferrus. Le
+  // navigateur les confondrait (installer l'une proposerait d'« ouvrir » une autre).
+  const manifest = await (await fetch('../manifest.webmanifest', { cache: 'no-store' })).json();
+  equal(manifest.id, '/omni-agenda/', 'id du manifeste');
+  equal(manifest.scope, './', 'scope du manifeste');
+});
+
+// ---------------------------------------------------------------
 // Lancement des tests, un par un, puis affichage des résultats
 // ---------------------------------------------------------------
 for (const { name, fn } of tests) {
