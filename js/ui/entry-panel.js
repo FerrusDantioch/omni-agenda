@@ -18,6 +18,7 @@ const SAVE_ERROR = { text: "L'enregistrement a échoué. Réessaie.", isError: t
 
 // Ce qui est affiché en ce moment : { mode: 'details' | 'form', entryId, form, version }
 let view = null;
+let closingPrompt = null;
 
 function getDialog() {
   return document.getElementById('fenetre-entree');
@@ -32,15 +33,20 @@ function renderShell(title, content) {
 }
 
 /** Demande à fermer : si une saisie est en cours, on demande d'abord confirmation. */
-async function confirmDiscardIfNeeded() {
+function confirmDiscardIfNeeded() {
   if (view?.mode !== 'form' || !view.form.isDirty()) return true;
-  return confirmAction({
-    title: 'Abandonner la saisie ?',
-    message: 'Ce que tu as saisi ne sera pas enregistré.',
-    confirmLabel: 'Abandonner',
-    cancelLabel: 'Continuer la saisie',
-    danger: true,
-  });
+  if (!closingPrompt) {
+    closingPrompt = confirmAction({
+      title: 'Abandonner la saisie ?',
+      message: 'Ce que tu as saisi ne sera pas enregistré.',
+      confirmLabel: 'Abandonner',
+      cancelLabel: 'Continuer la saisie',
+      danger: true,
+    }).finally(() => {
+      closingPrompt = null;
+    });
+  }
+  return closingPrompt;
 }
 
 async function requestClose() {
@@ -51,20 +57,21 @@ async function requestClose() {
 // Mode « fiche de détails »
 // ---------------------------------------------------------------
 
-function showDetails(entryId, notice = null) {
+function showDetails(entryId, notice = null, occurrenceDate = null) {
   const entry = getEntry(entryId);
   if (!entry) {
     closeModal(getDialog());
     return;
   }
-  view = { mode: 'details', entryId, version: entry.updatedAt };
+  view = { mode: 'details', entryId, occurrenceDate, version: entry.updatedAt };
   const content = renderEntryDetails(entry, {
     notice,
+    occurrenceDate,
     onEdit: () => showForm({ entry }),
     onDelete: () => removeEntry(entry),
     onToggleDone: () => toggleTaskDone(entry.id).catch((error) => {
       console.error(error);
-      showDetails(entry.id, SAVE_ERROR);
+      showDetails(entry.id, SAVE_ERROR, occurrenceDate);
     }),
   });
   return renderShell(entry.title, content);
@@ -72,11 +79,14 @@ function showDetails(entryId, notice = null) {
 
 async function removeEntry(entry) {
   const isEvent = entry.type === 'event';
+  const isRecurring = isEvent && Boolean(entry.recurrence);
   const confirmed = await confirmAction({
-    title: isEvent ? 'Supprimer ce rendez-vous ?' : 'Supprimer cette tâche ?',
-    message: isEvent
-      ? `Le rendez-vous « ${entry.title} » sera supprimé définitivement.`
-      : `La tâche « ${entry.title} » sera supprimée définitivement.`,
+    title: isRecurring ? 'Supprimer ce rendez-vous récurrent ?' : isEvent ? 'Supprimer ce rendez-vous ?' : 'Supprimer cette tâche ?',
+    message: isRecurring
+      ? `Le rendez-vous récurrent « ${entry.title} » et toutes ses répétitions seront supprimés définitivement.`
+      : isEvent
+        ? `Le rendez-vous « ${entry.title} » sera supprimé définitivement.`
+        : `La tâche « ${entry.title} » sera supprimée définitivement.`,
     confirmLabel: 'Supprimer',
     danger: true,
   });
@@ -87,7 +97,7 @@ async function removeEntry(entry) {
     showToast(entry.type === 'event' ? 'Rendez-vous supprimé.' : 'Tâche supprimée.');
   } catch (error) {
     console.error(error);
-    showDetails(entry.id, { text: 'La suppression a échoué. Réessaie.', isError: true });
+    showDetails(entry.id, { text: 'La suppression a échoué. Réessaie.', isError: true }, view?.occurrenceDate ?? null);
   }
 }
 
@@ -149,7 +159,7 @@ export function initEntryPanel() {
     if (view?.mode !== 'details') return;
     const entry = getEntry(view.entryId);
     if (!entry) closeModal(dialog);
-    else if (entry.updatedAt !== view.version) keepFocus(dialog, () => showDetails(entry.id));
+    else if (entry.updatedAt !== view.version) keepFocus(dialog, () => showDetails(entry.id, null, view.occurrenceDate));
   });
 }
 
@@ -159,14 +169,14 @@ export function initEntryPanel() {
  */
 export function openNewEntry(type, { defaultDate, defaultDueDate } = {}) {
   showForm({ type, defaultDate, defaultDueDate });
-  openModal(getDialog());
+  openModal(getDialog(), { onBeforeClose: confirmDiscardIfNeeded });
   view.form.focusFirstField();
 }
 
-/** Ouvre la fiche de détails d'une entrée. */
-export function openEntryDetails(entryId) {
-  const heading = showDetails(entryId);
+/** Ouvre la fiche de détails d'une entrée (avec sa date d'occurrence si récurrent). */
+export function openEntryDetails(entryId, occurrenceDate = null) {
+  const heading = showDetails(entryId, null, occurrenceDate);
   if (!heading) return;
-  openModal(getDialog());
+  openModal(getDialog(), { onBeforeClose: confirmDiscardIfNeeded });
   heading.focus();
 }

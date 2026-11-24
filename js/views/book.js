@@ -82,10 +82,10 @@ function listenForSwipes(element, onSwipe) {
   let start = null;
   element.addEventListener('pointerdown', (event) => {
     if (event.pointerType === 'mouse' || !event.isPrimary) return;
-    start = { x: event.clientX, y: event.clientY, time: event.timeStamp };
+    start = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, time: event.timeStamp };
   });
   element.addEventListener('pointerup', (event) => {
-    if (!start) return;
+    if (!start || event.pointerId !== start.pointerId) return;
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
     const duration = event.timeStamp - start.time;
@@ -96,8 +96,8 @@ function listenForSwipes(element, onSwipe) {
     }
   });
   // Le navigateur a pris la main (défilement vertical) : on oublie ce geste.
-  element.addEventListener('pointercancel', () => {
-    start = null;
+  element.addEventListener('pointercancel', (event) => {
+    if (start && event.pointerId === start.pointerId) start = null;
   });
 }
 

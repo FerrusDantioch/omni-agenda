@@ -122,7 +122,7 @@ export function showNotice(zone, lines, { isError = false } = {}) {
  * « perdre sa place » à l'utilisateur.
  */
 export function keepFocus(container, render) {
-  const key = container.contains(document.activeElement) ? document.activeElement.dataset.focusKey : null;
+  const key = container.contains(document.activeElement) ? document.activeElement?.dataset?.focusKey : null;
   render();
   if (key) container.querySelector(`[data-focus-key="${CSS.escape(key)}"]`)?.focus();
 }

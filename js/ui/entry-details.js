@@ -8,7 +8,8 @@
 import { el } from './dom.js';
 import { formatEventHours } from './entry-item.js';
 import { TYPE_LABELS, getEventSchedule, priorityLabel, reminderLabel } from '../entries.js';
-import { formatISODateLong, relativeDayLabel } from '../dates.js';
+import { addDays, daysBetween, formatISODateLong, relativeDayLabel } from '../dates.js';
+import { formatRecurrenceLabel } from '../recurrence.js';
 import { sanitizeToFragment } from '../sanitize.js';
 
 /** « Aujourd'hui — Mercredi 21 octobre 2026 » ou « Jeudi 29 octobre 2026 ». */
@@ -25,19 +26,35 @@ function row(label, value) {
 /**
  * Fabrique le contenu de la fiche.
  *  - notice : message à afficher en haut ({ text, isError }) ou null ;
+ *  - occurrenceDate : date de l'occurrence cliquée (si récurrent) ;
  *  - onEdit(), onDelete(), onToggleDone().
  * Renvoie un élément contenant le corps et le pied de la fiche.
  */
-export function renderEntryDetails(entry, { notice = null, onEdit, onDelete, onToggleDone }) {
+export function renderEntryDetails(entry, { notice = null, occurrenceDate = null, onEdit, onDelete, onToggleDone }) {
   const rows = [];
 
   if (entry.type === 'event') {
     const schedule = getEventSchedule(entry);
-    rows.push(row('Date', formatDay(schedule.startDate)));
-    rows.push(row('Horaire', formatEventHours(schedule)));
+    const displaySchedule = occurrenceDate
+      ? getEventSchedule({
+        ...entry,
+        date: occurrenceDate,
+        endDate: entry.allDay && entry.endDate ? addDays(occurrenceDate, daysBetween(entry.date, entry.endDate)) : entry.endDate,
+      })
+      : schedule;
+    if (occurrenceDate && occurrenceDate !== entry.date) {
+      rows.push(row('Occurrence', formatDay(displaySchedule.startDate)));
+      rows.push(row('Première date', formatDay(schedule.startDate)));
+    } else if (displaySchedule.allDay && displaySchedule.endDate !== displaySchedule.startDate) {
+      rows.push(row('Dates', `Du ${formatISODateLong(displaySchedule.startDate)} au ${formatISODateLong(displaySchedule.endDate)}`));
+    } else {
+      rows.push(row('Date', formatDay(displaySchedule.startDate)));
+    }
+    rows.push(row('Horaire', formatEventHours(displaySchedule, entry)));
+    if (entry.recurrence) rows.push(row('Répétition', formatRecurrenceLabel(entry.recurrence)));
     if (entry.location) rows.push(row('Lieu', entry.location));
     rows.push(row('Rappel', reminderLabel(entry.reminderMinutes)));
-    if (schedule.shifted) {
+    if (!displaySchedule.allDay && displaySchedule.shifted) {
       rows.push(row('Fuseau horaire',
         `Créé dans le fuseau ${entry.timeZone} (${entry.startTime} là-bas). Les heures ci-dessus sont celles de ton appareil.`));
     }
@@ -46,7 +63,7 @@ export function renderEntryDetails(entry, { notice = null, onEdit, onDelete, onT
     rows.push(row('Priorité', priorityLabel(entry.priority)));
     rows.push(row('État',
       el('label', { class: 'checkbox-row' },
-        el('input', { type: 'checkbox', checked: entry.done, 'data-focus-key': 'faite', onchange: () => onToggleDone() }),
+        el('input', { type: 'checkbox', checked: entry.done, 'data-focus-key': `details-faite-${entry.id}`, onchange: () => onToggleDone() }),
         el('span', {}, 'Tâche terminée'),
       ),
     ));
@@ -65,8 +82,8 @@ export function renderEntryDetails(entry, { notice = null, onEdit, onDelete, onT
       description,
     ),
     el('div', { class: 'panel-footer' },
-      el('button', { type: 'button', class: 'btn btn-danger', 'data-focus-key': 'supprimer', onclick: () => onDelete() }, 'Supprimer'),
-      el('button', { type: 'button', class: 'btn btn-primary', 'data-focus-key': 'modifier', onclick: () => onEdit() }, 'Modifier'),
+      el('button', { type: 'button', class: 'btn btn-danger', 'data-focus-key': `details-supprimer-${entry.id}`, onclick: () => onDelete() }, 'Supprimer'),
+      el('button', { type: 'button', class: 'btn btn-primary', 'data-focus-key': `details-modifier-${entry.id}`, onclick: () => onEdit() }, 'Modifier'),
     ),
   );
 }

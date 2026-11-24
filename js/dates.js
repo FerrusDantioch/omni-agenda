@@ -17,6 +17,22 @@
 const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
+export const MIN_DATE = '1900-01-01';
+export const MAX_DATE = '2200-12-31';
+
+/** Borne une date ISO à l'intervalle [1900-01-01, 2200-12-31]. */
+export function clampDate(iso) {
+  if (iso < MIN_DATE) return MIN_DATE;
+  if (iso > MAX_DATE) return MAX_DATE;
+  return iso;
+}
+
+/** Retire d'éventuelles secondes (:SS ou :SS.sss) d'une heure de champ formulaire. */
+export function normalizeTime(value) {
+  if (typeof value !== 'string') return '';
+  return value.trim().replace(/^(\d{2}:\d{2}):\d{2}(?:\.\d+)?$/, '$1');
+}
+
 /** Ajoute un zéro devant les nombres à un chiffre : 7 → '07'. */
 function pad(number) {
   return String(number).padStart(2, '0');
@@ -96,6 +112,16 @@ export function addDays(iso, days) {
   const { year, month, day } = parseISODate(iso);
   const result = new Date(Date.UTC(year, month - 1, day + days));
   return `${result.getUTCFullYear()}-${pad(result.getUTCMonth() + 1)}-${pad(result.getUTCDate())}`;
+}
+
+/**
+ * Nombre exact de jours entre deux dates ISO (`endISO - startISO`),
+ * calculé à minuit UTC (insensible aux changements d'heure).
+ */
+export function daysBetween(startISO, endISO) {
+  const a = parseISODate(startISO);
+  const b = parseISODate(endISO);
+  return Math.round((Date.UTC(b.year, b.month - 1, b.day) - Date.UTC(a.year, a.month - 1, a.day)) / 86400000);
 }
 
 /** '14:30' → 870 (nombre de minutes depuis minuit). */
@@ -317,8 +343,8 @@ export function formatMonthYearLower(iso) {
 }
 
 /** « Aujourd'hui », « Demain », « Hier », ou null pour les autres jours. */
-export function relativeDayLabel(iso) {
-  const today = todayISO();
+export function relativeDayLabel(iso, now = new Date()) {
+  const today = typeof now === 'string' ? now : toISODate(now);
   if (iso === today) return "Aujourd'hui";
   if (iso === addDays(today, 1)) return 'Demain';
   if (iso === addDays(today, -1)) return 'Hier';

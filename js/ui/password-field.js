@@ -29,11 +29,17 @@ export function passwordField({ label, autocomplete = 'current-password', hint =
     'aria-describedby': hint ? hintId : null,
   });
 
-  const toggle = el('button', { type: 'button', class: 'btn btn-small password-toggle', 'aria-controls': id }, 'Afficher');
+  const toggle = el('button', {
+    type: 'button',
+    class: 'btn btn-small password-toggle',
+    'aria-controls': id,
+    'aria-pressed': 'false',
+  }, 'Afficher');
   toggle.addEventListener('click', () => {
     const show = input.type === 'password';
     input.type = show ? 'text' : 'password';
     toggle.textContent = show ? 'Masquer' : 'Afficher';
+    toggle.setAttribute('aria-pressed', String(show));
     input.focus();
   });
 

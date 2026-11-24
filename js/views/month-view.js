@@ -11,8 +11,8 @@
 
 import { el } from '../ui/dom.js';
 import {
-  addDays, addMonths, daysInMonth, formatISODateLong, formatMonthYear, formatWeekday,
-  formatWeekdayShort, parseISODate, startOfMonth, weekdayIndex,
+  MAX_DATE, MIN_DATE, addDays, addMonths, clampDate, daysInMonth, formatISODateLong,
+  formatMonthYear, formatWeekday, formatWeekdayShort, parseISODate, startOfMonth, weekdayIndex,
 } from '../dates.js';
 import { createPage, dayContent, pageDateHeading, undatedSection } from './page-parts.js';
 
@@ -29,23 +29,27 @@ function sameDayInMonth(iso, months) {
   return `${target.slice(0, 8)}${String(day).padStart(2, '0')}`;
 }
 
-/** Touches du clavier dans le calendrier → nouveau jour choisi. */
+/** Touches du clavier dans le calendrier → nouveau jour choisi (borné à 1900–2200). */
 function dateForKey(key, iso) {
+  let next = null;
   switch (key) {
-    case 'ArrowLeft': return addDays(iso, -1);
-    case 'ArrowRight': return addDays(iso, 1);
-    case 'ArrowUp': return addDays(iso, -7);
-    case 'ArrowDown': return addDays(iso, 7);
-    case 'Home': return addDays(iso, -weekdayIndex(iso));
-    case 'End': return addDays(iso, 6 - weekdayIndex(iso));
-    case 'PageUp': return sameDayInMonth(iso, -1);
-    case 'PageDown': return sameDayInMonth(iso, 1);
+    case 'ArrowLeft': next = addDays(iso, -1); break;
+    case 'ArrowRight': next = addDays(iso, 1); break;
+    case 'ArrowUp': next = addDays(iso, -7); break;
+    case 'ArrowDown': next = addDays(iso, 7); break;
+    case 'Home': next = addDays(iso, -weekdayIndex(iso)); break;
+    case 'End': next = addDays(iso, 6 - weekdayIndex(iso)); break;
+    case 'PageUp': next = sameDayInMonth(iso, -1); break;
+    case 'PageDown': next = sameDayInMonth(iso, 1); break;
     default: return null;
   }
+  const clamped = clampDate(next);
+  return clamped === iso ? null : clamped;
 }
 
 /** Un jour du calendrier (bouton). */
 function dayCell(iso, selected, monthPrefix, ctx) {
+  const outOfBounds = iso < MIN_DATE || iso > MAX_DATE;
   const entries = ctx.index.entriesOn(iso);
   const events = entries.filter((entry) => entry.type === 'event').length;
   const tasks = entries.filter((entry) => entry.type === 'task' && !entry.done).length;
@@ -69,9 +73,10 @@ function dayCell(iso, selected, monthPrefix, ctx) {
   return el('button', {
     type: 'button',
     class: classes.join(' '),
+    disabled: outOfBounds,
     'data-date': iso,
     'data-focus-key': `mois-${iso}`,
-    tabindex: iso === selected ? '0' : '-1',
+    tabindex: iso === selected && !outOfBounds ? '0' : '-1',
     'aria-pressed': String(iso === selected),
     'aria-current': iso === ctx.today ? 'date' : false,
     'aria-label': parts.join(', '),
@@ -94,23 +99,33 @@ function monthGrid(selected, ctx) {
   const gridStart = addDays(first, -offset);
   const monthPrefix = first.slice(0, 7);
 
-  const table = el('table', { class: 'month-grid' },
+  const table = el('table', {
+    class: 'month-grid',
+    role: 'grid',
+    'aria-label': `Calendrier de ${formatMonthYear(first).toLowerCase()}`,
+  },
     el('caption', { class: 'visually-hidden' }, `Calendrier de ${formatMonthYear(first).toLowerCase()}. Les flèches du clavier changent de jour.`),
-    el('thead', {},
+    el('thead', { role: 'rowgroup' },
       // Nom court (« Lun. ») ou initiale (« L ») selon la place disponible ;
       // « abbr » donne le nom complet aux lecteurs d'écran.
-      el('tr', {}, WEEKDAYS.map((day) =>
-        el('th', { scope: 'col', abbr: formatWeekday(day) },
+      el('tr', { role: 'row' }, WEEKDAYS.map((day) =>
+        el('th', { scope: 'col', role: 'columnheader', abbr: formatWeekday(day), 'aria-label': formatWeekday(day) },
           el('span', { class: 'weekday-short' }, formatWeekdayShort(day)),
           el('span', { class: 'weekday-narrow' }, formatWeekday(day).charAt(0)),
         ),
       )),
     ),
-    el('tbody', {},
+    el('tbody', { role: 'rowgroup' },
       Array.from({ length: weeks }, (_, week) =>
-        el('tr', {}, Array.from({ length: 7 }, (_, dayOfWeek) =>
-          el('td', {}, dayCell(addDays(gridStart, week * 7 + dayOfWeek), selected, monthPrefix, ctx)),
-        )),
+        el('tr', { role: 'row' }, Array.from({ length: 7 }, (_, dayOfWeek) => {
+          const cellIso = addDays(gridStart, week * 7 + dayOfWeek);
+          const outOfBounds = cellIso < MIN_DATE || cellIso > MAX_DATE;
+          return el('td', {
+            role: 'gridcell',
+            'aria-selected': String(cellIso === selected),
+            'aria-disabled': outOfBounds ? 'true' : null,
+          }, dayCell(cellIso, selected, monthPrefix, ctx));
+        })),
       ),
     ),
   );
@@ -151,9 +166,12 @@ export const monthView = {
     return startOfMonth(date);
   },
 
-  /** On passe au 1er du mois précédent ou suivant. */
+  /** On passe au 1er du mois précédent ou suivant (borné à 1900–2200). */
   step(date, direction) {
-    return addMonths(date, direction);
+    const target = addMonths(date, direction);
+    if (target < MIN_DATE) return MIN_DATE;
+    if (target > MAX_DATE) return startOfMonth(MAX_DATE);
+    return target;
   },
 
   title(date) {

@@ -15,16 +15,18 @@
 import { el, setText, showNotice } from './dom.js';
 import { chooseAction, confirmAction, openFormDialog } from './dialogs.js';
 import { passwordField } from './password-field.js';
-import { getSetting, setSetting } from '../storage.js';
+import { LAST_EXPORT_SETTING, getSetting, setSetting } from '../storage.js';
 import { getEntries, replaceAllEntries, saveEntries } from '../entry-store.js';
-import { getExportProtection } from '../security.js';
+import {
+  getExportIterations, isLocked, isProtected, isSecurityReady, verifyPassword,
+} from '../security.js';
 import { formatMoment, toISODate } from '../dates.js';
+import { exportAgendaIcs, icsFileName } from '../ics.js';
 import {
   BackupError, MAX_BACKUP_BYTES, backupFileName, createBackup, createEncryptedBackup, decryptBackup,
   describeCount, describeEntries, parseBackup, planMerge, serializeBackup,
 } from '../backup.js';
 
-const LAST_EXPORT_SETTING = 'lastExportAt';
 const CANCELLED = "Import annulé : ton agenda n'a pas changé.";
 
 // Vrai pendant un import : on évite d'en lancer un deuxième en même temps.
@@ -46,6 +48,8 @@ function showError(lines) {
 function setBusy(value) {
   busy = value;
   document.getElementById('bouton-exporter').disabled = value;
+  const icsButton = document.getElementById('bouton-exporter-ics');
+  if (icsButton) icsButton.disabled = value;
   document.getElementById('bouton-importer').disabled = value;
 }
 
@@ -76,8 +80,8 @@ async function showLastExport() {
 }
 
 /** Fait « télécharger » un fichier fabriqué ici même (rien ne passe par internet). */
-function downloadFile(fileName, text) {
-  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+function downloadFile(fileName, text, mimeType = 'application/json') {
+  const url = URL.createObjectURL(new Blob([text], { type: mimeType }));
   const link = el('a', { href: url, download: fileName, hidden: true });
   document.body.append(link);
   link.click();
@@ -86,21 +90,56 @@ function downloadFile(fileName, text) {
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
+async function askExportPassword() {
+  const field = passwordField({ label: 'Mot de passe actuel', autocomplete: 'current-password' });
+  let password = null;
+  const confirmed = await openFormDialog({
+    title: 'Protéger la sauvegarde',
+    message: [
+      'Ton agenda est protégé par un mot de passe.',
+      'Écris ton mot de passe actuel pour chiffrer ce fichier avec une clé dédiée.',
+    ],
+    content: [field.element],
+    submitLabel: 'Exporter',
+    onSubmit: async () => {
+      if (!field.input.value) return { message: 'Écris ton mot de passe actuel.', input: field.input };
+      const valid = await verifyPassword(field.input.value);
+      if (!valid) return { message: 'Mot de passe incorrect. Réessaie.', input: field.input };
+      password = field.input.value;
+      return null;
+    },
+  });
+  return confirmed ? password : null;
+}
+
 async function exportAgenda() {
   if (busy) return;
-  const entries = getEntries();
+  let entries = getEntries();
   if (entries.length === 0) {
     showMessage("Ton agenda est vide : il n'y a encore rien à exporter.");
     return;
   }
 
+  // Mot de passe actif : on dérive une clé dédiée avec un sel propre à ce fichier.
+  const protectedExport = isProtected();
+  let exportPassword = null;
+  if (protectedExport) {
+    exportPassword = await askExportPassword();
+    if (exportPassword === null) return;
+    entries = getEntries();
+    if (entries.length === 0) {
+      showMessage("Ton agenda est vide : il n'y a encore rien à exporter.");
+      return;
+    }
+  }
+
   const now = new Date();
   const fileName = backupFileName(toISODate(now));
-  // Mot de passe actif : le fichier est chiffré avec la même clé que l'agenda.
-  const protection = getExportProtection();
   setBusy(true);
   try {
-    const backup = protection ? await createEncryptedBackup(entries, now, protection) : createBackup(entries, now);
+    const backup = protectedExport
+      ? await createEncryptedBackup(entries, now, { password: exportPassword, iterations: getExportIterations() })
+      : createBackup(entries, now);
     downloadFile(fileName, serializeBackup(backup));
   } catch (error) {
     console.error(error);
@@ -112,7 +151,7 @@ async function exportAgenda() {
   showMessage([
     `C'est fait : ton agenda (${describeEntries(entries)}) a été exporté dans le fichier « ${fileName} ».`,
     'Tu le trouveras en général dans le dossier « Téléchargements » de ton appareil.',
-    protection
+    protectedExport
       ? "Ce fichier est chiffré : pour l'importer, il faudra ton mot de passe actuel."
       : "Ce fichier n'est pas chiffré : toute personne qui l'a peut le lire. Garde-le en lieu sûr.",
   ]);
@@ -120,6 +159,64 @@ async function exportAgenda() {
   setSetting(LAST_EXPORT_SETTING, now.toISOString())
     .then(showLastExport)
     .catch((error) => console.warn("Date d'export non mémorisée :", error));
+}
+
+async function askIcsExportConfirmation() {
+  const field = passwordField({ label: 'Mot de passe actuel', autocomplete: 'current-password' });
+  const confirmed = await openFormDialog({
+    title: 'Exporter en clair (.ics) ?',
+    message: [
+      'Attention : le format standard « .ics » ne permet pas le chiffrement.',
+      'Le fichier créé sera lisible en clair par toute personne qui y accède.',
+      'Écris ton mot de passe actuel pour confirmer cet export.',
+    ],
+    content: [field.element],
+    submitLabel: 'Exporter en .ics',
+    onSubmit: async () => {
+      if (!field.input.value) return { message: 'Écris ton mot de passe actuel.', input: field.input };
+      const valid = await verifyPassword(field.input.value);
+      if (!valid) return { message: 'Mot de passe incorrect. Réessaie.', input: field.input };
+      return null;
+    },
+  });
+  return confirmed;
+}
+
+async function exportIcsAgenda() {
+  if (busy || !isSecurityReady() || isLocked()) return;
+  let entries = getEntries();
+  if (entries.length === 0) {
+    showMessage("Ton agenda est vide : il n'y a encore rien à exporter.");
+    return;
+  }
+
+  if (isProtected()) {
+    const confirmed = await askIcsExportConfirmation();
+    if (!confirmed || !isSecurityReady() || isLocked()) return;
+    entries = getEntries();
+    if (entries.length === 0) {
+      showMessage("Ton agenda est vide : il n'y a encore rien à exporter.");
+      return;
+    }
+  }
+
+  const now = new Date();
+  const fileName = icsFileName(toISODate(now));
+  setBusy(true);
+  try {
+    const icsText = exportAgendaIcs(entries, { now });
+    downloadFile(fileName, icsText, 'text/calendar;charset=utf-8');
+  } catch (error) {
+    console.error(error);
+    showError("L'export .ics a échoué. Réessaie.");
+    return;
+  } finally {
+    setBusy(false);
+  }
+  showMessage([
+    `C'est fait : ton agenda (${describeEntries(entries)}) a été exporté au format .ics dans « ${fileName} ».`,
+    "Ce fichier n'est pas chiffré : toute personne qui l'a peut le lire. Garde-le en lieu sûr.",
+  ]);
 }
 
 // ---------------------------------------------------------------
@@ -294,6 +391,9 @@ export function initBackupSettings() {
 
   document.getElementById('bouton-exporter').addEventListener('click', () => {
     exportAgenda();
+  });
+  document.getElementById('bouton-exporter-ics')?.addEventListener('click', () => {
+    exportIcsAgenda();
   });
   document.getElementById('bouton-importer').addEventListener('click', () => {
     if (!busy) fileInput.click();

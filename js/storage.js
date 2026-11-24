@@ -19,7 +19,24 @@ const STORE_ENTRIES = 'entries';
 // Clé de la petite copie des réglages d'apparence (lue par js/boot.js).
 const APPEARANCE_CACHE_KEY = 'omni-agenda:apparence';
 
+export const LAST_EXPORT_SETTING = 'lastExportAt';
+export const AUTO_LOCK_MINUTES_SETTING = 'autoLockMinutes';
+export const AUTO_LOCK_ON_HIDE_SETTING = 'autoLockOnHide';
+export const SHOWN_REMINDERS_KEY = 'omni-agenda:rappels-affiches';
+export const REMINDER_SALT_KEY = 'omni-agenda:rappels-sel';
+
 let databasePromise = null;
+
+/** Attache la réinitialisation de la connexion lors d'une fermeture ou d'un changement de version. */
+export function bindDatabaseLifecycle(db, onClose) {
+  db.onversionchange = () => {
+    onClose();
+    db.close();
+  };
+  db.onclose = () => {
+    onClose();
+  };
+}
 
 /**
  * Ouvre la base de données (une seule fois, puis on réutilise la connexion).
@@ -28,7 +45,7 @@ let databasePromise = null;
 function openDatabase() {
   if (databasePromise) return databasePromise;
 
-  databasePromise = new Promise((resolve, reject) => {
+  const pending = new Promise((resolve, reject) => {
     if (!('indexedDB' in window)) {
       reject(new Error('IndexedDB indisponible'));
       return;
@@ -45,33 +62,31 @@ function openDatabase() {
       }
     };
 
+    const resetIfCurrent = () => {
+      if (databasePromise === pending) databasePromise = null;
+    };
+
     request.onsuccess = () => {
       const db = request.result;
       // Si une version plus récente de l'application s'ouvre dans un autre
-      // onglet, on libère la base pour ne pas la bloquer.
-      db.onversionchange = () => db.close();
+      // onglet, on libère la base pour ne pas la bloquer, et on oublie l'ancienne connexion.
+      bindDatabaseLifecycle(db, resetIfCurrent);
       resolve(db);
     };
 
-    request.onerror = () => reject(request.error);
+    request.onerror = () => reject(request.error || new Error('Ouverture IndexedDB échouée'));
+    request.onblocked = () => console.warn('Base de données bloquée par un autre onglet.');
   });
 
+  databasePromise = pending;
   // En cas d'échec, on permettra un nouvel essai plus tard.
-  databasePromise.catch(() => {
-    databasePromise = null;
+  pending.catch(() => {
+    if (databasePromise === pending) databasePromise = null;
   });
-  return databasePromise;
+  return pending;
 }
 
-/**
- * Exécute une opération dans la base et attend qu'elle soit vraiment
- * enregistrée avant de répondre.
- *  - `storeNames` : un rayon (texte) ou plusieurs (liste) ;
- *  - `action` reçoit le rayon, ou la transaction entière s'il y en a plusieurs.
- * Une « transaction » est un groupe d'opérations fait en « tout ou rien ».
- */
-async function runTransaction(storeNames, mode, action) {
-  const db = await openDatabase();
+function executeTransaction(db, storeNames, mode, action) {
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(storeNames, mode);
     let request;
@@ -94,6 +109,27 @@ async function runTransaction(storeNames, mode, action) {
     transaction.onerror = () => reject(transaction.error);
     transaction.onabort = () => reject(transaction.error || new Error('Opération annulée'));
   });
+}
+
+/**
+ * Exécute une opération dans la base et attend qu'elle soit vraiment
+ * enregistrée avant de répondre.
+ *  - `storeNames` : un rayon (texte) ou plusieurs (liste) ;
+ *  - `action` reçoit le rayon, ou la transaction entière s'il y en a plusieurs.
+ * Une « transaction » est un groupe d'opérations fait en « tout ou rien ».
+ */
+async function runTransaction(storeNames, mode, action) {
+  let db = await openDatabase();
+  try {
+    return await executeTransaction(db, storeNames, mode, action);
+  } catch (error) {
+    if (error?.name === 'InvalidStateError') {
+      databasePromise = null;
+      db = await openDatabase();
+      return executeTransaction(db, storeNames, mode, action);
+    }
+    throw error;
+  }
 }
 
 // ---------------------------------------------------------------
@@ -176,9 +212,36 @@ export function replaceProtectedData(protection, records) {
   });
 }
 
-/** Efface tout l'agenda et le mot de passe (« mot de passe oublié »). Les réglages d'apparence restent. */
-export function eraseAgenda() {
-  return replaceProtectedData(null, []);
+/** Supprime uniquement la liste des rappels déjà affichés (lors d'un changement de protection). */
+export function clearShownRemindersStorage() {
+  try {
+    localStorage.removeItem(SHOWN_REMINDERS_KEY);
+  } catch {
+    // Stockage bloqué : sans gravité.
+  }
+}
+
+/** Supprime la liste des rappels affichés ainsi que le sel associé. */
+export function clearReminderStorage() {
+  try {
+    localStorage.removeItem(SHOWN_REMINDERS_KEY);
+    localStorage.removeItem(REMINDER_SALT_KEY);
+  } catch {
+    // Stockage bloqué : sans gravité.
+  }
+}
+
+/** Efface tout l'agenda, le mot de passe et les traces locales associées. Les réglages d'apparence restent. */
+export async function eraseAgenda() {
+  await runTransaction([STORE_SETTINGS, STORE_ENTRIES], 'readwrite', (transaction) => {
+    transaction.objectStore(STORE_ENTRIES).clear();
+    const settings = transaction.objectStore(STORE_SETTINGS);
+    settings.delete(PROTECTION_SETTING);
+    settings.delete(LAST_EXPORT_SETTING);
+    settings.delete(AUTO_LOCK_MINUTES_SETTING);
+    settings.delete(AUTO_LOCK_ON_HIDE_SETTING);
+  });
+  clearReminderStorage();
 }
 
 // ---------------------------------------------------------------

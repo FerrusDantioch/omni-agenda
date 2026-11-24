@@ -32,18 +32,22 @@ Tes rendez-vous et tes tâches restent chez toi.
 
 ## 1. Ce que fait Omni-Agenda
 
-- **Rendez-vous** : titre, date, heures de début et de fin, lieu, description, rappel facultatif.
-- **Tâches** : titre, échéance facultative, priorité, case « faite », description.
-- **Vues Jour, Semaine et Mois**, présentées comme un agenda papier :
+- **Rendez-vous** : titre, date, **journée entière** (sur un ou plusieurs jours) ou heures de début et de fin, **récurrences** (quotidienne, hebdomadaire, mensuelle, annuelle avec fin par date ou nombre d'occurrences), lieu, description, rappel facultatif.
+- **Tâches** : titre, échéance facultative, récurrence facultative, priorité, case « faite », description.
+- **Vues Jour, Semaine et Mois**, présentées comme un agenda papier (navigation bornée entre 1900 et 2200) :
   - deux pages et une reliure sur grand écran, avec une page qui tourne doucement ;
-  - une seule page sur téléphone, que l'on change en glissant le doigt ou avec les boutons.
+  - une seule page sur téléphone, que l'on change en glissant le doigt ou avec les boutons (grille mensuelle accessible `role="grid"` et marges `safe-area-inset` sur mobile).
+- **Recherche locale** : barre de recherche instantanée (insensible aux accents, ligatures et majuscules) dans les titres, lieux, notes, dates, récurrences et tâches, accessible uniquement après déverrouillage.
+- **Confirmation avant perte de saisie** : sur téléphone (bouton Retour) ou fermeture, une fenêtre demande confirmation si une fiche contient des modifications non enregistrées.
 - **Descriptions enrichies** : gras, souligné et surlignage de couleur.
-- **8 polices** au choix, toutes incluses (dont OpenDyslexic, pour la dyslexie, et une police manuscrite).
+- **8 polices** au choix, toutes incluses (dont OpenDyslexic avec plage `unicode-range` latine, pour la dyslexie, et une police manuscrite).
 - **3 thèmes** : Omni-système (sombre aux reflets violets), Sombre, Clair. **Taille du texte** réglable.
-- **Export et import** dans un fichier `.json`, avec le choix « Fusionner » ou « Remplacer », toujours après confirmation.
-- **Mot de passe facultatif** : l'agenda est alors chiffré (illisible sans le mot de passe).
+- **Export et import** :
+  - sauvegarde complète au format `.json` (« Fusionner » ou « Remplacer », chiffrée avec un sel dédié à chaque export si un mot de passe est actif) ;
+  - **export `.ics`** (format iCalendar RFC 5545) pour transférer rendez-vous et tâches vers un autre agenda (fichier non chiffré, avec avertissement si un mot de passe est actif).
+- **Mot de passe facultatif et verrouillage automatique** : l'agenda est chiffré sur l'appareil, avec délai d'inactivité configurable (1, 5, 15, 30, 60 min ou jamais), verrouillage optionnel au masquage de l'onglet, protection retour cache navigateur (`bfcache`), synchronisation multi-onglets et option « Tout effacer » depuis l'écran de verrouillage.
 - **Sans internet** et **installable** comme une application (Android, iPhone, ordinateur).
-- **Rappels** : notifications discrètes, sans son.
+- **Rappels** : notifications discrètes sans son, dédupliquées entre onglets et mémorisées de façon salée/chiffrée.
 
 ---
 
@@ -105,16 +109,33 @@ Pour arrêter le serveur : dans le terminal, appuie sur **Ctrl + C**.
 
 ### Tests automatiques
 
+**Dans le navigateur :**
+
 1. Le serveur local étant lancé, ouvre : **<http://localhost:8080/tests/tests.html>**
-2. Attends quelques secondes. Tu dois voir en vert : **« ✓ Les 56 tests sont réussis. »**
+2. Attends quelques secondes. Tu dois voir en vert : **« ✓ Les 82 tests sont réussis. »**
 
 Ces tests vérifient notamment :
-- les calculs de dates et les changements d'heure ;
+- les calculs de dates (1900–2200), fuseaux horaires et changements d'heure ;
 - la protection contre le code piégé ;
-- la lecture des fichiers de sauvegarde ;
-- le chiffrement et les rappels.
+- les événements sur journée entière, les récurrences, la recherche locale et l'export `.ics` ;
+- la lecture des fichiers de sauvegarde `.json` ;
+- le chiffrement, le verrouillage automatique, les rappels et la complétude du service worker (`sw.js`).
 
 Ils ne touchent pas à ton agenda.
+
+**En ligne de commande (avec Node.js) :**
+
+- **Contrôles statiques** (aucune dépendance externe requise) :
+  ```sh
+  node tests/verifier-statique.mjs
+  ```
+  Vérifie la présence de `.nojekyll`, la règle CSP stricte, l'absence de scripts/styles inline, la syntaxe et la correspondance réciproque entre les fichiers référencés (`index.html`, CSS, `manifest.webmanifest`, modules JS) et `sw.js`.
+- **Suite complète + E2E navigateur (Playwright)** :
+  ```sh
+  npm install --no-save playwright && npx playwright install chromium
+  node tests/tester.js
+  ```
+  Exécute les tests de `tests/tests.html`, les scénarios E2E (verrouillage automatique, synchronisation multi-onglets `BroadcastChannel`, retour mobile, effacement complet `eraseEverything()`, recherche, récurrences, journée entière, export `.ics`) et la complétude du service worker.
 
 ### Vérifications à faire toi-même
 
@@ -214,10 +235,9 @@ Si Omni-Agenda est un jour publiée sur internet, la mise à jour fonctionne de 
 
 Deux règles à respecter :
 
-- **Si tu ajoutes un nouveau fichier** (`.js`, `.css`, police, icône…), ajoute-le aussi à la liste `FILES` du fichier `sw.js`.
+- **Si tu ajoutes un nouveau fichier** (`.js`, `.css`, police, icône…), ajoute-le aussi à la liste `FILES` du fichier `sw.js`, puis incrémente `CACHE_VERSION` dans `sw.js` (chaque version utilise un cache isolé `omni-agenda-v*` sans téléchargement parallèle inutile au démarrage).
   Sinon, il manquera quand l'application fonctionne sans internet.
-- **Le numéro de version** affiché dans « À propos » se change dans `js/config.js` (`APP_VERSION`).
-  Ce n'est pas obligatoire pour la mise à jour, mais c'est utile pour s'y retrouver.
+- **Le numéro de version** affiché dans « À propos » (et dans les sauvegardes `.json` / `.ics`) se change dans `js/config.js` (`APP_VERSION`), à garder aligné avec `CACHE_VERSION` dans `sw.js`.
 
 L'adresse du portfolio (bouton « Découvrir mon portfolio ») se change aussi dans `js/config.js` (`PORTFOLIO_URL`).
 
@@ -229,12 +249,16 @@ Le principe : un fichier par responsabilité. Les commentaires du code sont en f
 
 ```
 omni-agenda/
+├── .nojekyll               Désactive Jekyll sur GitHub Pages
+├── .gitignore              Ignore node_modules, package.json, fichiers temporaires
+├── .github/workflows/
+│   └── ci.yml              Intégration continue (Node 22 : syntaxe, statique, Playwright)
 ├── index.html              La page unique : tous les écrans (agenda, réglages, à propos, verrouillage)
 ├── manifest.webmanifest    Fiche d'identité de l'application (nom, icônes) pour l'installation
-├── sw.js                   Le « service worker » : copie hors ligne, mises à jour, rappels
+├── sw.js                   Le « service worker » : copie hors ligne versionnée, mises à jour, rappels
 ├── css/                    L'apparence
 │   ├── themes.css          Couleurs des 3 thèmes et texture du papier
-│   ├── fonts.css           Les 8 polices
+│   ├── fonts.css           Les 8 polices (dont OpenDyslexic avec plage unicode-range latine)
 │   ├── base.css            Bases (tailles, focus clavier, animations réduites)
 │   ├── components.css      Barre du haut, boutons, cartes, messages
 │   ├── forms.css           Champs, fenêtres, éditeur de description
@@ -245,27 +269,31 @@ omni-agenda/
 ├── js/                     Le programme
 │   ├── boot.js             Applique thème et police avant l'affichage (pas de flash)
 │   ├── app.js              Point de départ : assemble toutes les pièces
+│   ├── auto-lock.js        Verrouillage automatique (inactivité, masquage, bfcache)
 │   ├── config.js           Nom, version, adresse du portfolio
 │   ├── storage.js          Enregistrement sur l'appareil (IndexedDB)
-│   ├── entries.js          Règles des rendez-vous et des tâches
+│   ├── entries.js          Règles des rendez-vous et des tâches (journée entière, rappels)
 │   ├── entry-store.js      La liste des entrées en mémoire
 │   ├── dates.js            Dates, heures, fuseaux horaires, changements d'heure
+│   ├── recurrence.js       Calcul et libellés des récurrences
+│   ├── search.js           Recherche locale (insensible aux accents/ligatures/casse)
+│   ├── ics.js              Export iCalendar RFC 5545 (.ics)
 │   ├── sanitize.js         Nettoyage des descriptions (seuls gras, souligné, surlignage)
 │   ├── backup.js           Fichier de sauvegarde (export, import, fusion)
 │   ├── crypto.js           Chiffrement (PBKDF2 + AES-GCM)
-│   ├── security.js         Mot de passe : activer, changer, désactiver, verrouiller
+│   ├── security.js         Mot de passe : activer, changer, désactiver, verrouiller, purger
 │   ├── reminders.js        Calcul des rappels
-│   ├── notifications.js    Affichage des rappels
+│   ├── notifications.js    Affichage des rappels (dédupliqués, salés/chiffrés)
 │   ├── offline.js          Mode hors ligne (inscription du service worker)
 │   ├── install.js          Installation comme application
 │   ├── router.js           Passage d'un écran à l'autre
 │   ├── themes.js, fonts.js Thèmes, polices, taille du texte
-│   ├── ui/                 Les éléments de l'interface (fenêtres, formulaires, réglages…)
+│   ├── ui/                 Les éléments de l'interface (fenêtres, formulaires, recherche, réglages…)
 │   └── views/              Les vues de l'agenda (jour, semaine, mois, livre)
 ├── assets/
 │   ├── icons/              Logo (agenda ouvert) et icônes de l'application
 │   └── fonts/              Polices et leurs licences
-├── tests/                  Page de tests automatiques (tests.html)
+├── tests/                  Tests navigateur (tests.html), contrôles statiques (verifier-statique.mjs) et E2E CLI (tester.js)
 └── docs/captures/          Captures d'écran de ce README
 ```
 
@@ -281,7 +309,11 @@ omni-agenda/
   - chaque rendez-vous et chaque tâche est chiffré avec **AES-GCM 256 bits** ;
   - la clé est obtenue à partir du mot de passe avec **PBKDF2-SHA-256 (600 000 tours)** et un sel aléatoire ;
   - **le mot de passe n'est jamais enregistré** ;
-  - le fichier exporté est chiffré lui aussi.
+  - le fichier exporté `.json` est chiffré lui aussi, avec son **propre sel aléatoire** à chaque export ;
+  - **verrouillage automatique** configurable après inactivité, optionnel dès le masquage de l'onglet, verrouillage au retour depuis le cache navigateur (`bfcache`) et propagation instantanée aux autres onglets via `BroadcastChannel` ;
+  - l'historique des rappels déjà affichés (`omni-agenda:rappels-affiches`) est **haché avec sel** et **chiffré** quand un mot de passe est actif ;
+  - **« Tout effacer »** (en cas d'oubli du mot de passe) purge les entrées, le mot de passe, la date du dernier export, les réglages de verrouillage automatique, le sel et l'historique des rappels (seuls les réglages d'apparence sont conservés) ;
+  - l'**export `.ics` n'est pas chiffré** (une confirmation explicite avec mot de passe est demandée si un mot de passe est actif).
 - ⚠️ **Si tu perds ton mot de passe, personne ne peut récupérer les données.**
   Pense à exporter ton agenda de temps en temps et à garder le fichier en lieu sûr.
 - Avec un mot de passe actif, **les rappels sont discrets** : ils n'affichent ni le titre ni le lieu.
@@ -304,6 +336,7 @@ omni-agenda/
 - Les 7 polices ajoutées sont sous licence libre **SIL Open Font License 1.1** :
   Atkinson Hyperlegible, Lexend, OpenDyslexic, Andika, Literata, Nunito, Patrick Hand.
   Leurs licences sont dans `assets/fonts/licences/`, et leur origine est expliquée dans `assets/fonts/LISEZ-MOI.md`.
+- **OpenDyslexic** : les règles `@font-face` dans `css/fonts.css` ciblent la plage `unicode-range` latine (français, ponctuation, `€`) sur les fichiers `.woff2` issus de `@fontsource` (jeu `latin`). Un sous-ensemble binaire plus fin peut être régénéré hors ligne avec `fonttools`/`pyftsubset` si nécessaire.
 - Omni-Agenda n'utilise **aucune bibliothèque extérieure** : uniquement du HTML, du CSS et du JavaScript, sans outil de construction.
 
 Application réalisée par **Ferrus Dantioch**, avec l'aide de l'**intelligence artificielle**.

@@ -108,6 +108,18 @@
         </div>
       </div>
 
+      <!-- Recherche locale (affichée après déverrouillage) -->
+      <div class="agenda-search" role="search" aria-label="Rechercher dans l'agenda">
+        <label for="champ-recherche" class="visually-hidden">Rechercher dans l'agenda</label>
+        <input type="search" id="champ-recherche" placeholder="Rechercher un titre, lieu, note, date, tâche…" autocomplete="off" spellcheck="false">
+        <button type="button" class="btn btn-ghost btn-small" id="bouton-effacer-recherche" hidden>Effacer</button>
+      </div>
+      <section id="recherche-resultats" class="search-results page" aria-labelledby="titre-recherche" hidden>
+        <h2 id="titre-recherche" class="page-week-title">Résultats de recherche</h2>
+        <p id="recherche-statut" class="search-status muted" role="status" aria-live="polite"></p>
+        <ul id="recherche-liste" class="entry-list"></ul>
+      </section>
+
       <!-- Navigation : précédent, période affichée, suivant -->
       <div class="agenda-nav">
         <button type="button" class="btn btn-ghost nav-button" id="bouton-precedent">
@@ -185,11 +197,13 @@
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg>
             <span>Exporter mon agenda</span>
           </button>
+          <button type="button" class="btn" id="bouton-exporter-ics">Exporter au format .ics</button>
           <button type="button" class="btn" id="bouton-importer">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 20V9m-5 5 5-5 5 5M5 4h14"/></svg>
             <span>Importer un agenda</span>
           </button>
         </div>
+        <p class="muted small">L'export « .ics » sert à transférer tes rendez-vous et tâches vers un autre agenda (fichier non chiffré).</p>
         <!-- Sélecteur de fichier, caché : il est ouvert par le bouton « Importer un agenda ». -->
         <input type="file" id="fichier-a-importer" accept=".json,application/json" hidden>
         <!-- Résultat de l'export ou de l'import, lu par les lecteurs d'écran. -->

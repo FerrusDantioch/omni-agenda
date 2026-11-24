@@ -13,42 +13,76 @@
 // =============================================================
 
 import { getEventSchedule } from './entries.js';
-import { formatDayMonth, formatWeekday, relativeDayLabel } from './dates.js';
+import {
+  addDays, clampDate, daysBetween, formatDayMonth, formatWeekday, relativeDayLabel, toISODate,
+} from './dates.js';
+import { getOccurrencesInRange } from './recurrence.js';
 
 const MINUTE = 60 * 1000;
 const ON_TIME_GRACE_MS = 10 * MINUTE;
 
-/** Identifiant d'un rappel : il change si l'heure du rendez-vous ou du rappel change. */
-function reminderKey(entry, fireAt) {
-  return `${entry.id}|${fireAt}`;
+/** Identifiant d'un rappel : il change si l'heure du rendez-vous, l'occurrence ou le rappel change. */
+function reminderKey(entry, fireAt, occurrenceDate = null) {
+  return occurrenceDate ? `${entry.id}|${occurrenceDate}|${fireAt}` : `${entry.id}|${fireAt}`;
 }
 
 /**
  * Les rappels à afficher à l'instant `now` (objet Date).
- * Renvoie [{ key, entry, schedule }], du rendez-vous le plus proche au plus lointain.
+ * Renvoie [{ key, entry, occurrenceDate?, schedule }], du rendez-vous le plus proche au plus lointain.
  */
 export function getDueReminders(entries, now) {
   const time = now.getTime();
   const due = [];
   for (const entry of entries) {
     if (entry.type !== 'event' || entry.reminderMinutes === null) continue;
-    const schedule = getEventSchedule(entry);
-    const start = schedule.start.getTime();
-    const fireAt = start - entry.reminderMinutes * MINUTE;
-    const until = entry.reminderMinutes === 0 ? start + ON_TIME_GRACE_MS : start;
-    if (time >= fireAt && time < until) due.push({ key: reminderKey(entry, fireAt), entry, schedule });
+
+    if (!entry.recurrence) {
+      const schedule = getEventSchedule(entry);
+      const start = schedule.start.getTime();
+      const fireAt = start - entry.reminderMinutes * MINUTE;
+      const until = entry.reminderMinutes === 0 ? start + ON_TIME_GRACE_MS : start;
+      if (time >= fireAt && time < until) due.push({ key: reminderKey(entry, fireAt), entry, schedule });
+      continue;
+    }
+
+    const windowStart = clampDate(addDays(toISODate(now), -2));
+    const windowEnd = clampDate(addDays(toISODate(new Date(time + entry.reminderMinutes * MINUTE)), 2));
+    const spanDays = entry.allDay && entry.endDate && entry.endDate > entry.date
+      ? daysBetween(entry.date, entry.endDate)
+      : 0;
+    const occDates = getOccurrencesInRange(entry, windowStart, windowEnd, { maxOccurrences: 32 });
+    for (const occDate of occDates) {
+      const occEndDate = entry.allDay ? (spanDays > 0 ? addDays(occDate, spanDays) : occDate) : null;
+      const occ = { ...entry, date: occDate, endDate: occEndDate, occurrenceDate: occDate };
+      const schedule = getEventSchedule(occ);
+      const start = schedule.start.getTime();
+      const fireAt = start - entry.reminderMinutes * MINUTE;
+      const until = entry.reminderMinutes === 0 ? start + ON_TIME_GRACE_MS : start;
+      if (time >= fireAt && time < until) {
+        due.push({ key: reminderKey(entry, fireAt, occDate), entry, occurrenceDate: occDate, schedule });
+      }
+    }
   }
   return due.sort((a, b) => a.schedule.start - b.schedule.start);
 }
 
-/** « Dans 15 minutes, à 14:00 », « Commence maintenant (14:00) », « Demain à 14:00 »… */
+/** « Dans 15 minutes, à 14:00 », « Commence maintenant (14:00) », « Demain (journée entière) »… */
 function whenText(schedule, now) {
   const minutesLeft = Math.round((schedule.start.getTime() - now.getTime()) / MINUTE);
+  if (schedule.allDay) {
+    if (minutesLeft <= 0) return "Aujourd'hui (journée entière)";
+    if (minutesLeft < 60) {
+      return `Dans ${minutesLeft} ${minutesLeft > 1 ? 'minutes' : 'minute'} (journée entière)`;
+    }
+    const day = relativeDayLabel(schedule.startDate, now)
+      ?? `${formatWeekday(schedule.startDate)} ${formatDayMonth(schedule.startDate)}`;
+    return `${day} (journée entière)`;
+  }
   if (minutesLeft <= 0) return `Commence maintenant (${schedule.startTime})`;
   if (minutesLeft < 60) {
     return `Dans ${minutesLeft} ${minutesLeft > 1 ? 'minutes' : 'minute'}, à ${schedule.startTime}`;
   }
-  const day = relativeDayLabel(schedule.startDate)
+  const day = relativeDayLabel(schedule.startDate, now)
     ?? `${formatWeekday(schedule.startDate)} ${formatDayMonth(schedule.startDate)}`;
   return `${day} à ${schedule.startTime}`;
 }

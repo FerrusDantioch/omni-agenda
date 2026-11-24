@@ -37,11 +37,11 @@ export function pageDateHeading(iso, today) {
 }
 
 /** Liste d'entrées, ou un petit texte si elle est vide. */
-export function entryList(entries, ctx, { compact = false, showDueDate = false, emptyText = 'Rien de prévu.' } = {}) {
+export function entryList(entries, ctx, { compact = false, showDueDate = false, emptyText = 'Rien de prévu.', focusScope = '' } = {}) {
   if (entries.length === 0) {
     return emptyText ? el('p', { class: 'page-empty' }, emptyText) : null;
   }
-  const actions = { onOpen: ctx.actions.onOpen, onToggleDone: ctx.actions.onToggleDone, showDueDate };
+  const actions = { onOpen: ctx.actions.onOpen, onToggleDone: ctx.actions.onToggleDone, showDueDate, focusScope };
   return el('ul', { class: compact ? 'entry-list is-compact' : 'entry-list' },
     entries.map((entry) => renderEntryItem(entry, actions)),
   );
@@ -52,7 +52,7 @@ export function overdueSection(ctx) {
   if (ctx.index.overdue.length === 0) return null;
   return el('section', { class: 'page-section' },
     el('h3', {}, 'En retard'),
-    entryList(ctx.index.overdue, ctx, { showDueDate: true }),
+    entryList(ctx.index.overdue, ctx, { showDueDate: true, focusScope: 'overdue' }),
   );
 }
 
@@ -65,7 +65,7 @@ export function undatedSection(ctx) {
   if (tasks.length === 0) return null;
   const details = el('details', { class: 'page-notes', open: undatedOpen },
     el('summary', {}, `Tâches sans échéance (${tasks.length})`),
-    entryList(tasks, ctx),
+    entryList(tasks, ctx, { focusScope: 'undated' }),
   );
   details.addEventListener('toggle', () => {
     undatedOpen = details.open;
@@ -87,7 +87,7 @@ export function addButton(iso, ctx) {
 /** Contenu complet d'une journée : entrées, retards (si c'est aujourd'hui), bouton Ajouter. */
 export function dayContent(iso, ctx) {
   return [
-    entryList(ctx.index.entriesOn(iso), ctx),
+    entryList(ctx.index.entriesOn(iso), ctx, { focusScope: `jour-${iso}` }),
     iso === ctx.today ? overdueSection(ctx) : null,
     addButton(iso, ctx),
   ];

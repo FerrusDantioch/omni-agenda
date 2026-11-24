@@ -27,10 +27,11 @@ export const PBKDF2_ITERATIONS = 600000;
 const MIN_ITERATIONS = 100000;
 const MAX_ITERATIONS = 5000000;
 
-const SALT_BYTES = 16;
-const IV_BYTES = 12;
+export const SALT_BYTES = 16;
+export const IV_BYTES = 12;
 const CHECK_VALUE = 'omni-agenda';
 const CHECK_LABEL = 'controle';
+const BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -63,8 +64,11 @@ export function toBase64(bytes) {
   return btoa(binary);
 }
 
-/** Lance une erreur si le texte n'est pas du base64 valide. */
+/** Lance une erreur si le texte n'est pas du base64 valide (canonique, sans espaces). */
 export function fromBase64(text) {
+  if (typeof text !== 'string' || !BASE64_PATTERN.test(text)) {
+    throw new Error('Base64 invalide.');
+  }
   const binary = atob(text);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
@@ -132,7 +136,7 @@ export async function decryptJson(key, { iv, data }, label) {
 
 /** Vrai si les réglages du calcul de la clé sont acceptables. */
 export function isValidKdf(kdf) {
-  if (!kdf || typeof kdf !== 'object') return false;
+  if (!kdf || typeof kdf !== 'object' || Array.isArray(kdf)) return false;
   if (kdf.name !== 'PBKDF2' || kdf.hash !== 'SHA-256') return false;
   if (!Number.isInteger(kdf.iterations) || kdf.iterations < MIN_ITERATIONS || kdf.iterations > MAX_ITERATIONS) return false;
   try {
@@ -144,8 +148,17 @@ export function isValidKdf(kdf) {
 
 /** Vrai si une protection lue sur l'appareil a la forme attendue. */
 export function isValidProtection(protection) {
-  return Boolean(protection) && protection.version === 1 && isValidKdf(protection.kdf)
-    && typeof protection.check?.iv === 'string' && typeof protection.check?.data === 'string';
+  if (!protection || typeof protection !== 'object' || Array.isArray(protection)) return false;
+  if (protection.version !== 1 || !isValidKdf(protection.kdf)) return false;
+  const { check } = protection;
+  if (!check || typeof check !== 'object' || Array.isArray(check)) return false;
+  if (typeof check.iv !== 'string' || typeof check.data !== 'string') return false;
+  if (check.iv.length > 32 || check.data.length === 0 || check.data.length > 4096) return false;
+  try {
+    return fromBase64(check.iv).length === IV_BYTES && fromBase64(check.data).length >= 16;
+  } catch {
+    return false;
+  }
 }
 
 /**

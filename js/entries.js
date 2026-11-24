@@ -4,8 +4,9 @@
 // Une « entrée » est soit un rendez-vous, soit une tâche.
 //
 // Rendez-vous (type 'event') :
-//   id, type, title, description, date, startTime, endTime,
-//   timeZone, location, reminderMinutes, createdAt, updatedAt
+//   id, type, title, description, date, endDate, allDay, startTime,
+//   endTime, timeZone, location, reminderMinutes, recurrence,
+//   createdAt, updatedAt
 //
 // Tâche (type 'task') :
 //   id, type, title, description, dueDate, priority, done,
@@ -17,8 +18,11 @@
 
 import {
   addDays, getDeviceTimeZone, instantToZoned, isValidISODate, isValidTime,
-  isValidTimeZone, wallTimeExists, zonedTimeToInstant,
+  isValidTimeZone, normalizeTime, wallTimeExists, zonedTimeToInstant,
 } from './dates.js';
+import {
+  MAX_RECURRENCE_COUNT, MAX_RECURRENCE_INTERVAL, RECURRENCE_FREQS,
+} from './recurrence.js';
 import { htmlToText, sanitizeHtml } from './sanitize.js';
 
 export const TYPE_LABELS = { event: 'Rendez-vous', task: 'Tâche' };
@@ -82,9 +86,83 @@ function findReminder(value) {
   return REMINDER_OPTIONS.find((option) => option.minutes === minutes) ?? null;
 }
 
-/** Une heure de champ de formulaire peut contenir des secondes : on les retire. */
-function normalizeTime(value) {
-  return typeof value === 'string' ? value.slice(0, 5) : '';
+function buildRecurrenceFromInput(input, date, errors) {
+  let freq = '';
+  let intervalRaw = 1;
+  let endMode = 'never';
+  let untilRaw = null;
+  let countRaw = null;
+
+  if (input.recurrence && typeof input.recurrence === 'object') {
+    freq = input.recurrence.freq ?? '';
+    intervalRaw = input.recurrence.interval ?? 1;
+    untilRaw = input.recurrence.until ?? null;
+    countRaw = input.recurrence.count ?? null;
+    endMode = untilRaw ? 'until' : countRaw !== null && countRaw !== '' ? 'count' : 'never';
+  } else if ('recurrenceFreq' in input) {
+    freq = input.recurrenceFreq ?? '';
+    intervalRaw = input.recurrenceInterval ?? 1;
+    endMode = input.recurrenceEndMode ?? 'never';
+    untilRaw = input.recurrenceUntil ?? null;
+    countRaw = input.recurrenceCount ?? null;
+  }
+
+  if (!freq) return null;
+
+  if (!Object.hasOwn(RECURRENCE_FREQS, freq)) {
+    errors.recurrenceFreq = 'Choisis une fréquence valide.';
+    return null;
+  }
+
+  const intervalStr = String(intervalRaw).trim();
+  const interval = intervalStr === '' ? NaN : Number(intervalStr);
+  if (!Number.isInteger(interval) || interval < 1 || interval > MAX_RECURRENCE_INTERVAL) {
+    errors.recurrenceInterval = `Choisis un intervalle entre 1 et ${MAX_RECURRENCE_INTERVAL}.`;
+  }
+
+  let until = null;
+  let count = null;
+  if (endMode === 'until') {
+    if (!isValidISODate(untilRaw)) {
+      errors.recurrenceUntil = 'Choisis une date de fin de répétition valide.';
+    } else if (!errors.date && untilRaw < date) {
+      errors.recurrenceUntil = 'La fin de répétition doit être égale ou postérieure au début.';
+    } else {
+      until = untilRaw;
+    }
+  } else if (endMode === 'count') {
+    const countStr = countRaw === null || countRaw === undefined ? '' : String(countRaw).trim();
+    const parsedCount = countStr === '' ? NaN : Number(countStr);
+    if (!Number.isInteger(parsedCount) || parsedCount < 1 || parsedCount > MAX_RECURRENCE_COUNT) {
+      errors.recurrenceCount = `Choisis un nombre de répétitions entre 1 et ${MAX_RECURRENCE_COUNT}.`;
+    } else {
+      count = parsedCount;
+    }
+  } else if (endMode !== 'never') {
+    errors.recurrenceEndMode = 'Choisis une fin de répétition valide.';
+  }
+
+  return {
+    freq,
+    interval: Number.isInteger(interval) && interval >= 1 ? Math.min(interval, MAX_RECURRENCE_INTERVAL) : 1,
+    until,
+    count,
+  };
+}
+
+function normalizeRecurrence(raw, date) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  if (typeof raw.freq !== 'string' || !Object.hasOwn(RECURRENCE_FREQS, raw.freq)) return null;
+  const interval = Number.isInteger(raw.interval) && raw.interval >= 1
+    ? Math.min(raw.interval, MAX_RECURRENCE_INTERVAL)
+    : 1;
+  const until = isValidISODate(raw.until) && raw.until >= date ? raw.until : null;
+  const count = until
+    ? null
+    : (Number.isInteger(raw.count) && raw.count >= 1
+      ? Math.min(raw.count, MAX_RECURRENCE_COUNT)
+      : null);
+  return { freq: raw.freq, interval, until, count };
 }
 
 // ---------------------------------------------------------------
@@ -122,37 +200,57 @@ export function buildEntry(input, existing = null) {
 
   if (type === 'event') {
     const date = input.date;
-    const startTime = normalizeTime(input.startTime);
-    const endTime = normalizeTime(input.endTime);
-    // On enregistre toujours dans le fuseau actuel de l'appareil :
-    // l'heure saisie est l'heure lue sur l'horloge ici.
-    const timeZone = getDeviceTimeZone();
-
+    const allDay = Boolean(input.allDay);
     if (!isValidISODate(date)) errors.date = 'Choisis une date valide.';
-    if (!isValidTime(startTime)) errors.startTime = "Choisis l'heure de début.";
-    if (!isValidTime(endTime)) errors.endTime = "Choisis l'heure de fin.";
 
-    if (!errors.date && !errors.startTime && !errors.endTime) {
-      const endDate = endTime < startTime ? addDays(date, 1) : date;
-      if (startTime === endTime) {
-        errors.endTime = "L'heure de fin doit être différente de l'heure de début.";
-      } else if (!wallTimeExists(date, startTime, timeZone)) {
-        errors.startTime = "Cette heure n'existe pas ce jour-là (passage à l'heure d'été). Choisis une autre heure.";
-      } else if (!wallTimeExists(endDate, endTime, timeZone)) {
-        errors.endTime = "Cette heure n'existe pas ce jour-là (passage à l'heure d'été). Choisis une autre heure.";
+    let endDate = null;
+    let startTime = null;
+    let endTime = null;
+    let timeZone = null;
+
+    if (allDay) {
+      endDate = input.endDate ? input.endDate : date;
+      if (!isValidISODate(endDate)) {
+        errors.endDate = 'Choisis une date de fin valide.';
+      } else if (!errors.date && endDate < date) {
+        errors.endDate = 'La date de fin doit être égale ou postérieure à la date de début.';
+      }
+    } else {
+      startTime = normalizeTime(input.startTime);
+      endTime = normalizeTime(input.endTime);
+      // On enregistre toujours dans le fuseau actuel de l'appareil :
+      // l'heure saisie est l'heure lue sur l'horloge ici.
+      timeZone = getDeviceTimeZone();
+
+      if (!isValidTime(startTime)) errors.startTime = "Choisis l'heure de début.";
+      if (!isValidTime(endTime)) errors.endTime = "Choisis l'heure de fin.";
+
+      if (!errors.date && !errors.startTime && !errors.endTime) {
+        const computedEndDate = endTime < startTime ? addDays(date, 1) : date;
+        if (startTime === endTime) {
+          errors.endTime = "L'heure de fin doit être différente de l'heure de début.";
+        } else if (!wallTimeExists(date, startTime, timeZone)) {
+          errors.startTime = "Cette heure n'existe pas ce jour-là (passage à l'heure d'été). Choisis une autre heure.";
+        } else if (!wallTimeExists(computedEndDate, endTime, timeZone)) {
+          errors.endTime = "Cette heure n'existe pas ce jour-là (passage à l'heure d'été). Choisis une autre heure.";
+        }
       }
     }
 
     const reminder = findReminder(input.reminderMinutes);
     if (!reminder) errors.reminderMinutes = 'Choisis un rappel dans la liste.';
+    const recurrence = buildRecurrenceFromInput(input, date, errors);
 
     Object.assign(entry, {
       date,
+      endDate,
+      allDay,
       startTime,
       endTime,
       timeZone,
       location: cleanLine(input.location, LIMITS.location),
       reminderMinutes: reminder ? reminder.minutes : null,
+      recurrence,
     });
   } else {
     const dueDate = input.dueDate ? input.dueDate : null;
@@ -200,16 +298,32 @@ export function normalizeEntry(raw) {
   };
 
   if (raw.type === 'event') {
-    const startTime = normalizeTime(raw.startTime);
-    const endTime = normalizeTime(raw.endTime);
-    if (!isValidISODate(raw.date) || !isValidTime(startTime) || !isValidTime(endTime)) return null;
+    if (!isValidISODate(raw.date)) return null;
+    const allDay = raw.allDay === true;
+    let endDate = null;
+    let startTime = null;
+    let endTime = null;
+    let timeZone = null;
+
+    if (allDay) {
+      endDate = isValidISODate(raw.endDate) && raw.endDate >= raw.date ? raw.endDate : raw.date;
+    } else {
+      startTime = normalizeTime(raw.startTime);
+      endTime = normalizeTime(raw.endTime);
+      if (!isValidTime(startTime) || !isValidTime(endTime)) return null;
+      timeZone = isValidTimeZone(raw.timeZone) ? raw.timeZone : getDeviceTimeZone();
+    }
+
     Object.assign(entry, {
       date: raw.date,
+      endDate,
+      allDay,
       startTime,
       endTime,
-      timeZone: isValidTimeZone(raw.timeZone) ? raw.timeZone : getDeviceTimeZone(),
+      timeZone,
       location: cleanLine(raw.location, LIMITS.location),
       reminderMinutes: findReminder(raw.reminderMinutes)?.minutes ?? null,
+      recurrence: normalizeRecurrence(raw.recurrence, raw.date),
     });
   } else {
     const done = raw.done === true;
@@ -227,35 +341,76 @@ export function normalizeEntry(raw) {
 // Horaires d'un rendez-vous, vus depuis l'appareil
 // ---------------------------------------------------------------
 
+const scheduleCache = new WeakMap();
+
 /**
  * Calcule les horaires d'un rendez-vous dans le fuseau de l'appareil.
- * Renvoie { start, end, startDate, startTime, endDate, endTime, shifted }.
+ * Renvoie { allDay, start, end, startDate, startTime, endDate, endTime, shifted }.
  *  - start / end : instants précis (objets Date) ;
  *  - shifted : vrai si le rendez-vous a été créé dans un autre fuseau
  *    horaire et que les heures ont donc été converties.
  */
 export function getEventSchedule(event) {
-  const endDate = event.endTime < event.startTime ? addDays(event.date, 1) : event.date;
-  const start = zonedTimeToInstant(event.date, event.startTime, event.timeZone);
-  const end = zonedTimeToInstant(endDate, event.endTime, event.timeZone);
   const deviceZone = getDeviceTimeZone();
+  const isAllDay = event.allDay === true;
+  const signature = isAllDay
+    ? `1|${event.date}|${event.endDate ?? event.date}|${deviceZone}`
+    : `0|${event.date}|${event.startTime}|${event.endTime}|${event.timeZone}|${deviceZone}`;
 
-  if (event.timeZone === deviceZone) {
-    // Cas habituel : même fuseau, on affiche l'heure telle qu'elle a été saisie.
-    return { start, end, startDate: event.date, startTime: event.startTime, endDate, endTime: event.endTime, shifted: false };
+  const cached = scheduleCache.get(event);
+  if (cached && cached.signature === signature) return cached.schedule;
+
+  let schedule;
+  if (isAllDay) {
+    const startDate = event.date;
+    const endDate = event.endDate && event.endDate >= startDate ? event.endDate : startDate;
+    const start = zonedTimeToInstant(startDate, '00:00', deviceZone);
+    const end = zonedTimeToInstant(addDays(endDate, 1), '00:00', deviceZone);
+    schedule = Object.freeze({
+      allDay: true,
+      start,
+      end,
+      startDate,
+      startTime: null,
+      endDate,
+      endTime: null,
+      shifted: false,
+    });
+  } else {
+    const endDate = event.endTime < event.startTime ? addDays(event.date, 1) : event.date;
+    const start = zonedTimeToInstant(event.date, event.startTime, event.timeZone);
+    const end = zonedTimeToInstant(endDate, event.endTime, event.timeZone);
+
+    if (event.timeZone === deviceZone) {
+      // Cas habituel : même fuseau, on affiche l'heure telle qu'elle a été saisie.
+      schedule = Object.freeze({
+        allDay: false,
+        start,
+        end,
+        startDate: event.date,
+        startTime: event.startTime,
+        endDate,
+        endTime: event.endTime,
+        shifted: false,
+      });
+    } else {
+      const localStart = instantToZoned(start, deviceZone);
+      const localEnd = instantToZoned(end, deviceZone);
+      schedule = Object.freeze({
+        allDay: false,
+        start,
+        end,
+        startDate: localStart.date,
+        startTime: localStart.time,
+        endDate: localEnd.date,
+        endTime: localEnd.time,
+        shifted: true,
+      });
+    }
   }
 
-  const localStart = instantToZoned(start, deviceZone);
-  const localEnd = instantToZoned(end, deviceZone);
-  return {
-    start,
-    end,
-    startDate: localStart.date,
-    startTime: localStart.time,
-    endDate: localEnd.date,
-    endTime: localEnd.time,
-    shifted: true,
-  };
+  scheduleCache.set(event, { signature, schedule });
+  return schedule;
 }
 
 // ---------------------------------------------------------------
@@ -269,12 +424,15 @@ export function getEntryDay(entry) {
 
 /**
  * Ordre d'affichage dans une même journée :
- * d'abord les rendez-vous (par heure), puis les tâches
- * (à faire avant faites, puis priorité haute d'abord).
+ * d'abord les rendez-vous (journée entière en tête, puis par heure),
+ * puis les tâches (à faire avant faites, puis priorité haute d'abord).
  */
 export function compareEntries(a, b) {
   if (a.type !== b.type) return a.type === 'event' ? -1 : 1;
   if (a.type === 'event') {
+    const aAllDay = Boolean(a.allDay);
+    const bAllDay = Boolean(b.allDay);
+    if (aAllDay !== bAllDay) return aAllDay ? -1 : 1;
     return getEventSchedule(a).start - getEventSchedule(b).start || a.title.localeCompare(b.title, 'fr');
   }
   if (a.done !== b.done) return a.done ? 1 : -1;

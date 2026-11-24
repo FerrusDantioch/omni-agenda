@@ -13,13 +13,33 @@ import { openFormDialog } from './dialogs.js';
 import { passwordField } from './password-field.js';
 import { getEntries, loadEntries } from '../entry-store.js';
 import { isCryptoAvailable } from '../crypto.js';
+import { AUTO_LOCK_MINUTES_SETTING, AUTO_LOCK_ON_HIDE_SETTING, setSetting } from '../storage.js';
 import {
-  PASSWORD_MIN_LENGTH, changePassword, checkNewPassword, disablePassword, enablePassword, isProtected, lockApp,
+  DEFAULT_AUTO_LOCK_MINUTES, DEFAULT_AUTO_LOCK_ON_HIDE, configureAutoLock,
+  normalizeAutoLockMinutes, refreshAutoLock,
+} from '../auto-lock.js';
+import {
+  PASSWORD_MIN_LENGTH, announceAutoLockSettings, changePassword, checkNewPassword,
+  disablePassword, enablePassword, isProtected, lockApp,
 } from '../security.js';
 
 const WARNING = 'Si tu perds ton mot de passe, personne ne peut récupérer les données.';
 const NEW_PASSWORD_HINT = `Au moins ${PASSWORD_MIN_LENGTH} caractères. Une phrase facile à retenir fonctionne bien, `
   + 'par exemple «\u00A0mon chat dort sous la pluie\u00A0».';
+
+const AUTO_LOCK_LABELS = [
+  { minutes: 1, label: "Après 1 minute d'inactivité" },
+  { minutes: 5, label: "Après 5 minutes d'inactivité" },
+  { minutes: 15, label: "Après 15 minutes d'inactivité" },
+  { minutes: 30, label: "Après 30 minutes d'inactivité" },
+  { minutes: 60, label: "Après 1 heure d'inactivité" },
+  { minutes: 0, label: 'Jamais (verrouillage manuel uniquement)' },
+];
+
+const autoLockState = {
+  minutes: DEFAULT_AUTO_LOCK_MINUTES,
+  onHide: DEFAULT_AUTO_LOCK_ON_HIDE,
+};
 
 /**
  * Après un changement réussi : on redessine le bloc, on y replace le
@@ -84,7 +104,10 @@ async function enable() {
     },
   });
 
-  if (done) afterChange('Mot de passe activé : ton agenda est maintenant chiffré sur cet appareil.');
+  if (done) {
+    refreshAutoLock();
+    afterChange('Mot de passe activé : ton agenda est maintenant chiffré sur cet appareil.');
+  }
 }
 
 async function change() {
@@ -109,6 +132,7 @@ async function change() {
   });
 
   if (done) {
+    refreshAutoLock();
     afterChange([
       'Mot de passe changé.',
       "Les fichiers déjà exportés s'ouvrent toujours avec l'ancien mot de passe. "
@@ -136,12 +160,53 @@ async function disable() {
     },
   });
 
-  if (done) afterChange("Mot de passe désactivé : ton agenda n'est plus chiffré.");
+  if (done) {
+    refreshAutoLock();
+    afterChange("Mot de passe désactivé : ton agenda n'est plus chiffré.");
+  }
 }
 
 // ---------------------------------------------------------------
 // Affichage du bloc
 // ---------------------------------------------------------------
+
+function autoLockSection() {
+  const delaySelect = el('select', { id: 'auto-lock-delai' },
+    AUTO_LOCK_LABELS.map(({ minutes, label }) =>
+      el('option', { value: String(minutes), selected: minutes === autoLockState.minutes }, label)),
+  );
+  delaySelect.addEventListener('change', () => {
+    autoLockState.minutes = normalizeAutoLockMinutes(Number(delaySelect.value));
+    configureAutoLock({ minutes: autoLockState.minutes });
+    setSetting(AUTO_LOCK_MINUTES_SETTING, autoLockState.minutes)
+      .catch((error) => console.warn('Délai de verrouillage non mémorisé :', error));
+    announceAutoLockSettings({ minutes: autoLockState.minutes, onHide: autoLockState.onHide });
+  });
+
+  const hideCheckbox = el('input', {
+    type: 'checkbox',
+    id: 'auto-lock-masque',
+    checked: autoLockState.onHide,
+  });
+  hideCheckbox.addEventListener('change', () => {
+    autoLockState.onHide = hideCheckbox.checked;
+    configureAutoLock({ onHide: autoLockState.onHide });
+    setSetting(AUTO_LOCK_ON_HIDE_SETTING, autoLockState.onHide)
+      .catch((error) => console.warn('Réglage de masquage non mémorisé :', error));
+    announceAutoLockSettings({ minutes: autoLockState.minutes, onHide: autoLockState.onHide });
+  });
+
+  return [
+    el('div', { class: 'field' },
+      el('label', { for: 'auto-lock-delai' }, 'Verrouillage automatique'),
+      delaySelect,
+    ),
+    el('label', { class: 'checkbox-row checkbox-row-wrap' },
+      hideCheckbox,
+      el('span', {}, "Verrouiller dès que l'onglet ou l'application est masqué"),
+    ),
+  ];
+}
 
 function render() {
   const zone = document.getElementById('reglages-mot-de-passe');
@@ -162,8 +227,9 @@ function render() {
       el('p', {}, el('strong', {}, 'Mot de passe activé. '),
         'Ton agenda est chiffré sur cet appareil : sans le mot de passe, il est illisible.'),
       warning(),
+      ...autoLockSection(),
       el('div', { class: 'button-row' },
-        button('Verrouiller maintenant', lockApp, 'btn btn-primary'),
+        button('Verrouiller maintenant', () => lockApp(), 'btn btn-primary'),
         button('Changer le mot de passe', change),
         button('Désactiver le mot de passe', disable, 'btn btn-danger'),
       ),
@@ -178,7 +244,18 @@ function render() {
   }
 }
 
-export function initPasswordSettings() {
-  document.getElementById('bouton-verrouiller').addEventListener('click', lockApp);
+export function updateAutoLockSettingsUI({ minutes, onHide } = {}) {
+  if (minutes !== undefined) autoLockState.minutes = normalizeAutoLockMinutes(minutes);
+  if (onHide !== undefined) autoLockState.onHide = Boolean(onHide);
+  const delaySelect = document.getElementById('auto-lock-delai');
+  if (delaySelect) delaySelect.value = String(autoLockState.minutes);
+  const hideCheckbox = document.getElementById('auto-lock-masque');
+  if (hideCheckbox) hideCheckbox.checked = autoLockState.onHide;
+}
+
+export function initPasswordSettings({ autoLockMinutes = DEFAULT_AUTO_LOCK_MINUTES, autoLockOnHide = DEFAULT_AUTO_LOCK_ON_HIDE } = {}) {
+  autoLockState.minutes = normalizeAutoLockMinutes(autoLockMinutes);
+  autoLockState.onHide = Boolean(autoLockOnHide);
+  document.getElementById('bouton-verrouiller').addEventListener('click', () => lockApp());
   render();
 }
