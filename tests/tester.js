@@ -1772,6 +1772,11 @@ async function main() {
         const dl = await page.waitForDownload(() => page.click('dialog.panel-small[open] button[type="submit"]'), 20000);
 
         assert.match(dl.filename, /^omni-agenda-\d{4}-\d{2}-\d{2}\.ics$/);
+        await page.waitForFunction(
+          () => Boolean(document.querySelector('#message-sauvegarde .notice')),
+          null,
+          { timeout: 10000 },
+        );
         const noticeText = await page.evaluate(() => document.getElementById('message-sauvegarde')?.textContent || '');
         assert.ok(noticeText.includes("Ce fichier n'est pas chiffré"));
 
