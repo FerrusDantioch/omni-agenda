@@ -292,8 +292,11 @@ export function createRichEditor({ id, labelId, describedBy = '', initialHtml = 
     newRange.setEnd(nodes[nodes.length - 1], nodes[nodes.length - 1].length);
     selection.removeAllRanges();
     selection.addRange(newRange);
-    savedRange = newRange.cloneRange();
     editor.normalize();
+    const activeRange = selection.rangeCount > 0 && editor.contains(selection.getRangeAt(0).commonAncestorContainer)
+      ? selection.getRangeAt(0)
+      : newRange;
+    savedRange = activeRange.cloneRange();
     updateButtons();
     notifyChange();
   };

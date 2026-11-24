@@ -11,10 +11,12 @@
 
 import { el, setText } from './dom.js';
 
-// Fenêtres ouvertes → jeton qui identifie leur étape d'historique.
+// Fenêtres ouvertes → { token, onBeforeClose }.
 const openModals = new Map();
 // Fenêtres dont la fermeture est déjà demandée (on attend le « retour » du navigateur).
 const closingModals = new Set();
+// Fenêtres dont une confirmation de fermeture (ex. saisie non enregistrée) est en cours.
+const confirmingModals = new Set();
 let tokenCounter = 0;
 
 // Après un rechargement, une ancienne étape « fenêtre » peut rester
@@ -24,21 +26,50 @@ if (history.state?.omniModal) history.replaceState(null, '');
 function forceClose(dialog) {
   openModals.delete(dialog);
   closingModals.delete(dialog);
+  confirmingModals.delete(dialog);
   if (dialog.open) dialog.close();
 }
 
-// Bouton « retour » : on ferme les fenêtres dont l'étape a été quittée.
+// Bouton « retour » : on ferme les fenêtres dont l'étape a été quittée,
+// en demandant confirmation si une saisie non enregistrée est en cours.
 window.addEventListener('popstate', () => {
-  for (const [dialog, token] of openModals) {
-    if (history.state?.omniModal !== token) forceClose(dialog);
+  for (const [dialog, entry] of openModals) {
+    if (history.state?.omniModal === entry.token) continue;
+    if (closingModals.has(dialog) || !entry.onBeforeClose) {
+      forceClose(dialog);
+      continue;
+    }
+    if (confirmingModals.has(dialog)) continue;
+    const check = entry.onBeforeClose();
+    if (check === true) {
+      forceClose(dialog);
+      continue;
+    }
+    confirmingModals.add(dialog);
+    Promise.resolve(check)
+      .then((allowed) => {
+        confirmingModals.delete(dialog);
+        if (!openModals.has(dialog)) return;
+        if (allowed) {
+          forceClose(dialog);
+        } else if (dialog.open && history.state?.omniModal !== entry.token) {
+          history.pushState({ omniModal: entry.token }, '');
+        }
+      })
+      .catch(() => {
+        confirmingModals.delete(dialog);
+        if (openModals.has(dialog) && dialog.open && history.state?.omniModal !== entry.token) {
+          history.pushState({ omniModal: entry.token }, '');
+        }
+      });
   }
 });
 
 /** Ouvre une fenêtre (et ajoute une étape dans l'historique). */
-export function openModal(dialog) {
+export function openModal(dialog, { onBeforeClose = null } = {}) {
   if (dialog.open) return;
   const token = `fenetre-${Date.now()}-${++tokenCounter}`;
-  openModals.set(dialog, token);
+  openModals.set(dialog, { token, onBeforeClose });
   history.pushState({ omniModal: token }, '');
   dialog.showModal();
 }
@@ -48,8 +79,8 @@ export function closeModal(dialog) {
   // Fermeture déjà en cours : on ne recule pas une deuxième fois dans
   // l'historique (cela ferait quitter l'application).
   if (closingModals.has(dialog)) return;
-  const token = openModals.get(dialog);
-  if (token && history.state?.omniModal === token) {
+  const entry = openModals.get(dialog);
+  if (entry && history.state?.omniModal === entry.token) {
     // Revenir en arrière déclenche « popstate », qui ferme la fenêtre.
     closingModals.add(dialog);
     history.back();

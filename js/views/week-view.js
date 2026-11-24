@@ -9,7 +9,8 @@
 
 import { el, icon } from '../ui/dom.js';
 import {
-  addDays, formatDayMonth, formatISODateLong, formatWeekday, isoWeekNumber, parseISODate, startOfWeek,
+  MAX_DATE, MIN_DATE, addDays, clampDate, formatDayMonth, formatISODateLong, formatWeekday,
+  isoWeekNumber, parseISODate, startOfWeek,
 } from '../dates.js';
 import { createPage, entryList, overdueSection, undatedSection } from './page-parts.js';
 
@@ -26,6 +27,7 @@ function weekRange(monday) {
 /** Un jour de la semaine : son nom (cliquable), ses entrées, un bouton « + ». */
 function weekDayBlock(iso, ctx) {
   const isToday = iso === ctx.today;
+  const outOfBounds = iso < MIN_DATE || iso > MAX_DATE;
   const { day } = parseISODate(iso);
   return el('section', { class: isToday ? 'week-day is-today' : 'week-day' },
     el('div', { class: 'week-day-header' },
@@ -33,6 +35,7 @@ function weekDayBlock(iso, ctx) {
         el('button', {
           type: 'button',
           class: 'week-day-link',
+          disabled: outOfBounds,
           'aria-label': `${formatISODateLong(iso)} : afficher la journée`,
           'data-focus-key': `jour-${iso}`,
           onclick: () => ctx.actions.onShowDay(iso),
@@ -46,12 +49,13 @@ function weekDayBlock(iso, ctx) {
       el('button', {
         type: 'button',
         class: 'btn btn-ghost btn-icon week-day-add',
+        disabled: outOfBounds,
         'aria-label': `Ajouter une entrée le ${formatISODateLong(iso)}`,
         'data-focus-key': `ajouter-${iso}`,
         onclick: () => ctx.actions.onAdd(iso),
       }, icon('plus')),
     ),
-    entryList(ctx.index.entriesOn(iso), ctx, { compact: true, emptyText: '' }),
+    entryList(ctx.index.entriesOn(iso), ctx, { compact: true, emptyText: '', focusScope: `jour-${iso}` }),
     isToday ? overdueSection(ctx) : null,
   );
 }
@@ -67,7 +71,7 @@ export const weekView = {
   },
 
   step(date, direction) {
-    return addDays(date, 7 * direction);
+    return clampDate(addDays(date, 7 * direction));
   },
 
   title(date) {

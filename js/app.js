@@ -10,7 +10,7 @@
 //   6. il affiche l'agenda, démarre la navigation entre écrans et les rappels.
 // =============================================================
 
-import { getSetting, setSetting } from './storage.js';
+import { AUTO_LOCK_MINUTES_SETTING, AUTO_LOCK_ON_HIDE_SETTING, getSetting, setSetting } from './storage.js';
 import { applyTheme, DEFAULT_THEME } from './themes.js';
 import { applyFont, applyTextSize, DEFAULT_FONT, DEFAULT_TEXT_SIZE } from './fonts.js';
 import { loadEntries } from './entry-store.js';
@@ -18,10 +18,14 @@ import { startRouter } from './router.js';
 import { initSettings } from './ui/settings.js';
 import { initAbout } from './ui/about.js';
 import { initBackupSettings } from './ui/backup-settings.js';
-import { initPasswordSettings } from './ui/password-settings.js';
+import { initPasswordSettings, updateAutoLockSettingsUI } from './ui/password-settings.js';
 import { setLocked, showLockScreen } from './ui/lock-screen.js';
 import { initAppSettings } from './ui/app-settings.js';
-import { loadProtection } from './security.js';
+import { loadProtection, onAutoLockSettingsChange } from './security.js';
+import {
+  DEFAULT_AUTO_LOCK_MINUTES, DEFAULT_AUTO_LOCK_ON_HIDE, configureAutoLock, initAutoLock,
+  normalizeAutoLockMinutes,
+} from './auto-lock.js';
 import { applyUpdate, startOffline } from './offline.js';
 import { startReminders } from './notifications.js';
 import { applyFrenchSpacing, el, setText } from './ui/dom.js';
@@ -63,13 +67,22 @@ const STORAGE_WARNING =
 
 async function start() {
   // 1. Lecture des réglages (avec des valeurs par défaut en cas de souci).
-  const settings = { theme: DEFAULT_THEME, font: DEFAULT_FONT, textSize: DEFAULT_TEXT_SIZE, agendaView: DEFAULT_VIEW };
+  const settings = {
+    theme: DEFAULT_THEME,
+    font: DEFAULT_FONT,
+    textSize: DEFAULT_TEXT_SIZE,
+    agendaView: DEFAULT_VIEW,
+    autoLockMinutes: DEFAULT_AUTO_LOCK_MINUTES,
+    autoLockOnHide: DEFAULT_AUTO_LOCK_ON_HIDE,
+  };
   let storageAvailable = true;
   try {
     settings.theme = await getSetting('theme', DEFAULT_THEME);
     settings.font = await getSetting('font', DEFAULT_FONT);
     settings.textSize = await getSetting('textSize', DEFAULT_TEXT_SIZE);
     settings.agendaView = await getSetting('agendaView', DEFAULT_VIEW);
+    settings.autoLockMinutes = normalizeAutoLockMinutes(await getSetting(AUTO_LOCK_MINUTES_SETTING, DEFAULT_AUTO_LOCK_MINUTES));
+    settings.autoLockOnHide = Boolean(await getSetting(AUTO_LOCK_ON_HIDE_SETTING, DEFAULT_AUTO_LOCK_ON_HIDE));
   } catch (error) {
     console.warn('Stockage indisponible :', error);
     storageAvailable = false;
@@ -84,19 +97,13 @@ async function start() {
   settings.font = applyFont(settings.font);
   settings.textSize = applyTextSize(settings.textSize);
 
-  // 3. Écrans.
+  // 3. Écrans d'apparence et mode hors ligne (aucun accès aux entrées).
   initSettings(settings, (error) => {
     console.warn("Échec de l'enregistrement :", error);
     showBanner(STORAGE_WARNING);
   });
-  initBackupSettings();
   initAppSettings();
   initAbout();
-  initEntryPanel();
-  document.getElementById('bouton-nouveau-rdv').addEventListener('click', () =>
-    openNewEntry('event', { defaultDate: getAgendaDate() }));
-  document.getElementById('bouton-nouvelle-tache').addEventListener('click', () =>
-    openNewEntry('task', { defaultDate: getAgendaDate() }));
 
   // Mode hors ligne : il ne touche à aucune donnée, il peut démarrer tout de suite.
   startOffline({ onUpdateReady: showUpdateBanner });
@@ -115,7 +122,12 @@ async function start() {
     if (wasLocked) await showLockScreen();
   }
   setLocked(false);
-  initPasswordSettings();
+  initAutoLock({ minutes: settings.autoLockMinutes, onHide: settings.autoLockOnHide });
+  initPasswordSettings({ autoLockMinutes: settings.autoLockMinutes, autoLockOnHide: settings.autoLockOnHide });
+  onAutoLockSettingsChange(({ minutes, onHide }) => {
+    configureAutoLock({ minutes, onHide });
+    updateAutoLockSettingsUI({ minutes, onHide });
+  });
 
   // 5. Rendez-vous et tâches.
   if (storageAvailable) {
@@ -127,7 +139,15 @@ async function start() {
     }
   }
 
-  // 6. L'agenda est dessiné après le chargement : pas de clignotement.
+  // 6. Écrans de gestion des entrées et de sauvegarde (seulement après déverrouillage).
+  initBackupSettings();
+  initEntryPanel();
+  document.getElementById('bouton-nouveau-rdv').addEventListener('click', () =>
+    openNewEntry('event', { defaultDate: getAgendaDate() }));
+  document.getElementById('bouton-nouvelle-tache').addEventListener('click', () =>
+    openNewEntry('task', { defaultDate: getAgendaDate() }));
+
+  // L'agenda est dessiné après le chargement : pas de clignotement.
   initAgendaView({
     initialView: settings.agendaView,
     onOpen: openEntryDetails,

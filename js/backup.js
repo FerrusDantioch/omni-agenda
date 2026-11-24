@@ -28,7 +28,10 @@
 
 import { APP_NAME, APP_VERSION } from './config.js';
 import { normalizeEntry } from './entries.js';
-import { decryptJson, deriveKey, encryptJson, fromBase64, isValidKdf, toBase64 } from './crypto.js';
+import {
+  PBKDF2_ITERATIONS, SALT_BYTES, decryptJson, deriveKey, encryptJson, fromBase64, isValidKdf,
+  randomBytes, toBase64,
+} from './crypto.js';
 
 export const BACKUP_FORMAT = 'omni-agenda';
 export const BACKUP_VERSION = 1;
@@ -80,17 +83,32 @@ export function createBackup(entries, now = new Date()) {
 }
 
 /**
- * Prépare une sauvegarde chiffrée. `protection` : { key, kdf } (voir
- * getExportProtection dans js/security.js). Seules les informations
- * générales (format, date de l'export) restent lisibles.
+ * Prépare une sauvegarde chiffrée.
+ * Avec `{ password, iterations }`, génère un sel aléatoire propre à ce fichier
+ * et en dérive une clé dédiée. Conserve aussi `{ key, kdf }` par compatibilité.
+ * Seules les informations générales (format, date de l'export) restent lisibles.
  */
-export async function createEncryptedBackup(entries, now, { key, kdf }) {
+export async function createEncryptedBackup(entries, now, protectionOptions) {
+  let key;
+  let kdf;
+  if (typeof protectionOptions?.password === 'string') {
+    const iterations = protectionOptions.iterations ?? PBKDF2_ITERATIONS;
+    const salt = randomBytes(SALT_BYTES);
+    key = await deriveKey(protectionOptions.password, salt, iterations);
+    kdf = { name: 'PBKDF2', hash: 'SHA-256', iterations, salt: toBase64(salt) };
+  } else if (protectionOptions?.key && protectionOptions?.kdf) {
+    ({ key, kdf } = protectionOptions);
+    kdf = { ...kdf };
+  } else {
+    throw new Error('Paramètres de chiffrement manquants pour la sauvegarde.');
+  }
+
   const { entries: sorted, ...header } = createBackup(entries, now);
   const { iv, data } = await encryptJson(key, { entries: sorted }, BACKUP_LABEL);
   return {
     ...header,
     encrypted: true,
-    kdf: { ...kdf },
+    kdf,
     cipher: { name: 'AES-GCM', iv: toBase64(iv) },
     data: toBase64(data),
   };
@@ -145,6 +163,15 @@ function isBase64OfLength(text, length) {
   }
 }
 
+/** Vrai si un texte base64 donne au moins `minLength` octets. */
+function isBase64MinLength(text, minLength) {
+  try {
+    return typeof text === 'string' && fromBase64(text).length >= minLength;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Lit le texte d'un fichier de sauvegarde et le vérifie.
  * Renvoie :
@@ -182,7 +209,7 @@ export function parseBackup(text) {
 
   if (data.encrypted === true) {
     const valid = isValidKdf(data.kdf) && data.cipher?.name === 'AES-GCM'
-      && isBase64OfLength(data.cipher.iv, 12) && typeof data.data === 'string';
+      && isBase64OfLength(data.cipher.iv, 12) && isBase64MinLength(data.data, 16);
     if (!valid) throw new BackupError(DAMAGED);
     return { encrypted: true, exportedAt, sealed: { kdf: data.kdf, iv: data.cipher.iv, data: data.data } };
   }

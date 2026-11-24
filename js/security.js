@@ -12,9 +12,13 @@
 // =============================================================
 
 import {
-  PROTECTION_SETTING, eraseAgenda, getSetting, replaceProtectedData, updateAppearanceCache,
+  PROTECTION_SETTING, clearShownRemindersStorage, eraseAgenda, getSetting, replaceProtectedData,
+  updateAppearanceCache,
 } from './storage.js';
-import { createProtection, decryptJson, encryptJson, isValidProtection, openProtection } from './crypto.js';
+import {
+  IV_BYTES, PBKDF2_ITERATIONS, createProtection, decryptJson, encryptJson, fromBase64,
+  isValidProtection, openProtection, toBase64,
+} from './crypto.js';
 
 /** Longueurs acceptées pour un nouveau mot de passe (en caractères). */
 export const PASSWORD_MIN_LENGTH = 8;
@@ -22,16 +26,56 @@ export const PASSWORD_MAX_LENGTH = 200;
 
 let protection = null; // la protection enregistrée, ou null s'il n'y a pas de mot de passe
 let key = null; // la clé, connue seulement après le bon mot de passe
+let securityReady = false;
 
-// Si le mot de passe change dans un autre onglet, cet onglet se recharge
-// (et redemande le mot de passe si besoin).
+const lockListeners = new Set();
+const autoLockListeners = new Set();
+
+// Si le mot de passe change ou si l'agenda se verrouille dans un autre onglet, on réagit.
 const channel = 'BroadcastChannel' in window ? new BroadcastChannel('omni-agenda-securite') : null;
-if (channel) channel.onmessage = () => window.location.reload();
+if (channel) {
+  channel.onmessage = (event) => {
+    const message = event.data;
+    if (message === 'changement' || message?.type === 'change') {
+      key = null;
+      for (const listener of lockListeners) listener();
+      window.location.reload();
+      return;
+    }
+    if (message?.type === 'lock') {
+      if (isProtected() && isLocked()) return;
+      lockApp({ broadcast: false });
+      return;
+    }
+    if (message?.type === 'auto-lock-settings') {
+      for (const listener of autoLockListeners) {
+        listener({ minutes: message.minutes, onHide: message.onHide });
+      }
+    }
+  };
+}
 
 /** Après un changement : on met à jour l'indice lu par boot.js et on prévient les autres onglets. */
 function announceChange() {
   updateAppearanceCache({ locked: protection !== null });
   channel?.postMessage('changement');
+}
+
+/** Abonne un nettoyage lors du verrouillage (ex. : vider la mémoire des entrées). */
+export function onAppLock(listener) {
+  lockListeners.add(listener);
+  return () => lockListeners.delete(listener);
+}
+
+/** Abonne aux changements de réglages du verrouillage automatique venant d'un autre onglet. */
+export function onAutoLockSettingsChange(listener) {
+  autoLockListeners.add(listener);
+  return () => autoLockListeners.delete(listener);
+}
+
+/** Prévient les autres onglets qu'un réglage de verrouillage automatique a changé. */
+export function announceAutoLockSettings({ minutes, onHide }) {
+  channel?.postMessage({ type: 'auto-lock-settings', minutes, onHide });
 }
 
 // ---------------------------------------------------------------
@@ -46,14 +90,30 @@ export async function loadProtection() {
   const saved = await getSetting(PROTECTION_SETTING, null);
   if (saved !== null && !isValidProtection(saved)) throw new Error('Protection par mot de passe illisible');
   protection = saved;
+  securityReady = true;
   // Indice pour boot.js : afficher tout de suite l'écran de verrouillage au prochain démarrage.
   updateAppearanceCache({ locked: protection !== null });
   return protection !== null;
 }
 
+/** Vrai une fois l'état de protection initial chargé. */
+export function isSecurityReady() {
+  return securityReady;
+}
+
 /** Vrai si un mot de passe est actif. */
 export function isProtected() {
   return protection !== null;
+}
+
+/** Vrai si un mot de passe est actif et que la clé n'est pas en mémoire. */
+export function isLocked() {
+  return protection !== null && key === null;
+}
+
+/** Vrai si un mot de passe est actif et que l'agenda est déverrouillé. */
+export function isUnlocked() {
+  return protection !== null && key !== null;
 }
 
 /** Essaie un mot de passe. Renvoie vrai s'il est bon (l'agenda est alors déverrouillé). */
@@ -64,9 +124,32 @@ export async function unlock(password) {
   return Boolean(found);
 }
 
-/** Verrouille : on recharge l'application, ce qui efface la clé de la mémoire. */
-export function lockApp() {
+/** Vérifie le mot de passe actuel sans modifier l'état de verrouillage. */
+export async function verifyPassword(password) {
+  if (!protection || typeof password !== 'string') return false;
+  return Boolean(await openProtection(protection, password));
+}
+
+/** Cache immédiatement les données en mémoire et à l'écran (ex. : bfcache / verrouillage). */
+export function suspendForBfcache() {
+  if (!protection) return;
+  key = null;
+  for (const listener of lockListeners) listener();
+  document.documentElement.setAttribute('data-locked', '');
+  updateAppearanceCache({ locked: true });
+  // Avant de fermer d'éventuels <dialog>, on neutralise l'étape d'historique modale
+  // pour ne pas déclencher history.back() pendant un verrouillage.
   window.history.replaceState(null, '', '#/');
+  for (const dialog of document.querySelectorAll('dialog[open]')) dialog.close();
+  const toast = document.getElementById('message-flottant');
+  if (toast) toast.textContent = '';
+}
+
+/** Verrouille : vide la mémoire, prévient les autres onglets et recharge l'application. */
+export function lockApp({ broadcast = true } = {}) {
+  if (!protection) return;
+  suspendForBfcache();
+  if (broadcast) channel?.postMessage({ type: 'lock' });
   window.location.reload();
 }
 
@@ -108,6 +191,7 @@ export function isSealedRecord(record) {
 
 /** Prépare une entrée pour l'enregistrement (chiffrée si un mot de passe est actif). */
 export function entryToRecord(entry) {
+  if (!securityReady) return Promise.reject(new Error('Sécurité non initialisée : écriture impossible.'));
   if (!protection) return Promise.resolve(entry);
   if (!key) return Promise.reject(new Error('Agenda verrouillé : enregistrement impossible.'));
   return sealEntry(key, entry);
@@ -115,6 +199,7 @@ export function entryToRecord(entry) {
 
 /** Relit un enregistrement (en le déchiffrant si besoin). Lance une erreur s'il est illisible. */
 export async function recordToEntry(record) {
+  if (!securityReady) throw new Error('Sécurité non initialisée : lecture impossible.');
   if (!isSealedRecord(record)) return record;
   if (!key) throw new Error('Agenda verrouillé : lecture impossible.');
   return decryptJson(key, record, entryLabel(record.id));
@@ -128,6 +213,32 @@ export function getExportProtection() {
   return protection && key ? { key, kdf: protection.kdf } : null;
 }
 
+/** Nombre d'itérations PBKDF2 à utiliser pour l'export chiffré. */
+export function getExportIterations() {
+  return protection?.kdf?.iterations ?? PBKDF2_ITERATIONS;
+}
+
+/** Chiffre une donnée locale de l'application avec la clé active (renvoie { iv, data } base64 ou null). */
+export async function sealAppData(value, label) {
+  if (!protection || !key) return null;
+  const { iv, data } = await encryptJson(key, value, label);
+  return { iv: toBase64(iv), data: toBase64(data) };
+}
+
+/** Déchiffre une donnée locale scellée avec `sealAppData`. Renvoie null si invalide ou verrouillé. */
+export async function unsealAppData(sealed, label) {
+  if (!protection || !key) return null;
+  if (!sealed || typeof sealed !== 'object' || Array.isArray(sealed)) return null;
+  try {
+    const iv = fromBase64(sealed.iv);
+    const data = fromBase64(sealed.data);
+    if (iv.length !== IV_BYTES || data.length < 16) return null;
+    return await decryptJson(key, { iv, data }, label);
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------
 // Activer, changer, désactiver
 // ---------------------------------------------------------------
@@ -139,8 +250,10 @@ export async function enablePassword(password, entries) {
   const created = await createProtection(password);
   const records = await Promise.all(entries.map((entry) => sealEntry(created.key, entry)));
   await replaceProtectedData(created.protection, records);
+  clearShownRemindersStorage();
   protection = created.protection;
   key = created.key;
+  securityReady = true;
   announceChange();
 }
 
@@ -153,6 +266,7 @@ export async function changePassword(currentPassword, newPassword, entries) {
   const created = await createProtection(newPassword);
   const records = await Promise.all(entries.map((entry) => sealEntry(created.key, entry)));
   await replaceProtectedData(created.protection, records);
+  clearShownRemindersStorage();
   protection = created.protection;
   key = created.key;
   announceChange();
@@ -166,8 +280,10 @@ export async function changePassword(currentPassword, newPassword, entries) {
 export async function disablePassword(currentPassword, entries) {
   if (!protection || !(await openProtection(protection, currentPassword))) return false;
   await replaceProtectedData(null, entries);
+  clearShownRemindersStorage();
   protection = null;
   key = null;
+  securityReady = true;
   announceChange();
   return true;
 }
@@ -177,5 +293,6 @@ export async function eraseEverything() {
   await eraseAgenda();
   protection = null;
   key = null;
+  securityReady = true;
   announceChange();
 }

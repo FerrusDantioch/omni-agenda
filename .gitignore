@@ -1,0 +1,17 @@
+# Outils des tests automatiques (npm install playwright) : jamais publiés
+node_modules/
+package.json
+package-lock.json
+
+# Fichiers temporaires système et éditeurs
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+*.tmp
+.vscode/
+.idea/
+
+# Rapports et artefacts temporaires de tests
+test-results/
+playwright-report/
